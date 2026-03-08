@@ -22,6 +22,10 @@ const DEDUP_TOLERANCE_SECONDS = 0.05  // 50ms
 const CROSSFADE_THRESHOLD = 0.7
 const CROSSFADE_DURATION = 0.01  // 10ms
 const ANALYSIS_WINDOW_SECONDS = 10
+// Downsample to this rate before autocorrelation. Loop periods are measured in
+// seconds, so ~4 kHz gives more than enough temporal resolution while reducing
+// autocorrelation cost by (sampleRate/CORR_RATE)² — about 120× for 44100 Hz.
+const CORR_RATE = 4000  // Hz
 
 type ProgressCallback = (phase: string) => void
 
@@ -69,7 +73,6 @@ export function detectLoops(
 
   // === Phase 3: Autocorrelation period estimation ===
   onProgress?.('autocorrelation')
-  const analysisWindow = Math.min(totalSamples, Math.round(ANALYSIS_WINDOW_SECONDS * sampleRate))
   const toleranceSamples = Math.round(0.05 * sampleRate)
 
   let preferredLengths: number[] = []
@@ -86,16 +89,33 @@ export function detectLoops(
       .filter(s => s >= minSamples && s <= maxSamples)
   }
 
-  // Always compute autocorrelation (may supplement BPM lengths)
+  // Always compute autocorrelation (may supplement BPM lengths).
+  // Downsample to CORR_RATE before running the O(N²) correlation so that
+  // large files (e.g. 4s × 44100 Hz) don't stall the worker.
+  // Periods detected at the lower rate are scaled back to full-rate samples.
   if (maxSamples > minSamples) {
-    const corrResult = computeAutocorrelation(mono, minSamples, maxSamples, analysisWindow)
+    const downsample = Math.max(1, Math.round(sampleRate / CORR_RATE))
+    const corrSR = sampleRate / downsample
+
+    // Simple decimation (no anti-alias filter needed — we only need period peaks)
+    const monoDs = new Float32Array(Math.ceil(mono.length / downsample))
+    for (let i = 0; i < monoDs.length; i++) monoDs[i] = mono[i * downsample]!
+
+    const dsWindow = Math.min(monoDs.length, Math.round(ANALYSIS_WINDOW_SECONDS * corrSR))
+    const dsMin = Math.max(1, Math.round(MIN_DURATION * corrSR))
+    const dsMax = Math.min(monoDs.length, Math.round(Math.min(audioDuration, MAX_DURATION) * corrSR))
+
+    const corrResult = computeAutocorrelation(monoDs, dsMin, dsMax, dsWindow)
     correlationValues = corrResult.values
-    corrMinLag = corrResult.minLag
+    corrMinLag = Math.round(corrResult.minLag * downsample)
+
+    // Scale detected periods back to full sample rate
+    const scaledLengths = corrResult.preferredLengths.map(l => Math.round(l * downsample))
+
     if (preferredLengths.length === 0) {
-      preferredLengths = corrResult.preferredLengths
+      preferredLengths = scaledLengths
     } else {
-      // Merge BPM-derived lengths with correlation-detected lengths
-      preferredLengths = [...preferredLengths, ...corrResult.preferredLengths]
+      preferredLengths = [...preferredLengths, ...scaledLengths]
     }
   }
 

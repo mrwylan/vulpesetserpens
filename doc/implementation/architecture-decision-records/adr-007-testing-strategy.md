@@ -148,17 +148,16 @@ A push that causes unit test failures is rejected. The developer must fix the te
 
 ### CI — GitHub Actions
 
-Both test layers run in CI on every push to `main` and on every pull request targeting `main`.
+Both test layers run in CI on every push to any branch and on every pull request targeting `main`.
 
-Pipeline stages (in order):
-1. Install dependencies
-2. Run unit tests (`npm run test:unit`) — fail fast on any unit test failure
-3. Build the application (`npm run build`) — fail fast on any TypeScript or build error
-4. Run E2E tests (`npm run test:e2e`) — fail fast on any E2E failure
+Pipeline stages (in order, defined in `.github/workflows/ci.yml`):
+1. Run unit tests (`npm run test:unit`) — fail fast on any unit test failure
+2. Build the application (`npm run build`) — fail fast on any TypeScript or build error
+3. Run E2E tests (`npm run test:e2e`) — fail fast on any E2E failure
 
 A PR may not be merged if any stage fails.
 
-The CI workflow file lives at `.github/workflows/ci.yml`.
+**This workflow covers testing and build validation only.** The container image build and publication to the registry is a separate concern handled by `.github/workflows/release.yml`. See ADR-008 for the full containerization and CD pipeline specification.
 
 ---
 

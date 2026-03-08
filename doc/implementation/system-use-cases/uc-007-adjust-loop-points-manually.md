@@ -86,6 +86,25 @@ Manual adjustment only affects the currently selected candidate. Other candidate
 9. Dragging the start marker past the end marker (or vice versa) is blocked at the minimum-duration floor; the marker stops rather than crossing.
 10. After manual adjustment, exporting the candidate (UC-005) uses the adjusted `startSample` / `endSample` values, not the original algorithm values.
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-2: zero-crossing snap function, given a pointer sample index and a synthetic `upCrossings` array, returns the nearest crossing within ±5 ms and never returns a non-crossing index when snapping is active
+- AC-5: nudge function increments or decrements the boundary to exactly the next or previous entry in the `upCrossings` array
+- AC-9: boundary-constraint function clamps the start marker at `endSample - minSamples` and prevents it from crossing the end marker
+- Pixel-to-sample conversion: `Math.round((pointerXRatio) * audioBuffer.length)` is correctly computed for boundary values (0, 0.5, 1.0)
+
+### E2E (Playwright)
+- AC-1: dragging a loop boundary marker updates its pixel position on the waveform canvas in real time with < 16 ms observed latency
+- AC-2: after releasing the drag with snapping active, `candidate.startSample` satisfies `samples[startSample - 1] < 0 && samples[startSample] >= 0` (verified via JS evaluation)
+- AC-4: after dragging the end marker to a new position, the displayed duration in the candidate list reflects the updated end time
+- AC-6: clicking "Reset" restores the original algorithm-generated `startSample` and `endSample` (verified by comparing displayed values before adjustment and after reset)
+- AC-7: after any manual adjustment, the candidate row displays a "manually adjusted" visual marker (e.g., pencil icon or "(adjusted)" label)
+- AC-8: holding Alt while dragging allows the marker to be placed at a non-zero-crossing sample (verified by checking that the committed sample is not in `upCrossings`)
+- AC-9: dragging the start marker past the end marker position is blocked — the marker stops at the minimum-duration floor
+- AC-10: after manually adjusting a candidate, exporting it produces a WAV file whose `data` chunk length corresponds to the adjusted `endSample - startSample` (not the original algorithm values)
+- AC-3: if a loop is playing while a boundary is dragged, the `sourceNode.loopStart` or `sourceNode.loopEnd` property updates within one audio render quantum (verified by observing audio glitch-free continuation in the E2E test)
+
 ## Notes / Constraints
 
 - The zero-crossing list (`upCrossings`) computed during UC-003 must be retained in application state and made accessible to this use case. It must not be discarded after analysis completes. This is a state management constraint that must be reflected in the store/reducer design.

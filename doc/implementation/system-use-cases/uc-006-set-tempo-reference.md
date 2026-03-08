@@ -74,6 +74,23 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 10. When the tempo reference is set before analysis runs, the worker uses it to compute preferred bar lengths for `S_period` scoring. A 4-bar loop at the given BPM scores higher in `S_period` than an arbitrary-length loop.
 11. Decimal BPM values (e.g., "93.5") are accepted and stored correctly.
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-3: `computeBarAnnotation(4.0, 120)` returns `"≈ 2 bars"`
+- AC-4: `computeBarAnnotation(8.0, 120)` returns `"≈ 4 bars"`
+- AC-5: `computeBarAnnotation(2.0, 60)` returns `"≈ 2 bars"`
+- AC-7: BPM validation function returns an error for input `301` and does not mutate `tempoReference`
+- AC-8: BPM validation function returns an error for input `"abc"` and does not mutate `tempoReference`
+- AC-11: BPM validation function accepts `"93.5"` and stores `93.5` as a float
+- AC-10: period scoring function, given expected bar lengths derived from a known BPM, assigns a higher `S_period` to a loop whose duration aligns with a 4-bar boundary than to an arbitrary-length loop
+
+### E2E (Playwright)
+- AC-1: typing "120" and pressing Enter causes `tempoReference` to equal `120.0` in app state within 50 ms (verified via JS evaluation)
+- AC-2: with candidates present, bar annotations appear in the candidate list immediately after a valid BPM is entered — no page reload
+- AC-6: deleting the BPM field value and pressing Enter removes bar annotations from the candidate list
+- AC-9: the waveform metadata area displays the entered BPM value after a valid entry
+
 ## Notes / Constraints
 
 - The BPM field should be positioned close to the waveform or the candidate list — not buried in a settings panel. Musicians reference it frequently during a session. A compact inline label + number input above or below the waveform is appropriate.

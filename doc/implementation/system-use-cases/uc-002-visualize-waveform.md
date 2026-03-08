@@ -80,6 +80,25 @@ The channel-mixing step (Main Flow 2a) ensures the waveform display is always mo
 10. The waveform for a stereo file is rendered as a single mono-mixed track, and a "Stereo" label is displayed adjacent to the canvas.
 11. Loop boundary markers (vertical lines) for the selected candidate are visible at the correct pixel positions corresponding to the candidate's start and end times.
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-5: peak-extraction function on a zeroed Float32Array produces min=0 and max=0 for every column
+- AC-6: peak-extraction function on a full-scale sine wave produces min ≈ -1.0 and max ≈ 1.0 across columns
+- AC-2: peak-extraction output array length equals the pixel-width argument passed to the function
+- AC-10: mono-mix function averages L and R channels correctly for a synthetic stereo Float32Array
+
+### E2E (Playwright)
+- AC-1: after uploading a WAV fixture, a `<canvas>` element is visible and non-empty within 500 ms of the audio-loaded event
+- AC-2: the canvas pixel width matches `canvas.clientWidth * devicePixelRatio` (verified via JS evaluation in Playwright)
+- AC-3: on a simulated high-DPI viewport (`devicePixelRatio = 2`), the canvas width attribute is twice the CSS width
+- AC-4: the center line is present — a pixel sample at the vertical midpoint of the canvas has a non-background color
+- AC-7: resizing the browser window causes the canvas to redraw at new dimensions within 200 ms of the resize completing
+- AC-8: after loop candidates are detected, colored overlay regions appear on the canvas without the page reloading
+- AC-9: the selected candidate's overlay is visually distinct from unselected overlays (pixel color differs at the same x position)
+- AC-10: after uploading a stereo fixture, a "Stereo" label is visible adjacent to the canvas
+- AC-11: loop boundary marker lines are rendered at pixel positions corresponding to the candidate's start and end times
+
 ## Notes / Constraints
 
 - All rendering must use the HTML5 Canvas 2D API. Do not use WebGL for this feature.

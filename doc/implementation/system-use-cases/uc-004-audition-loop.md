@@ -106,6 +106,23 @@ If UC-003 results are refreshed (e.g., re-analysis triggered), the currently pla
 12. Pressing Down arrow while a candidate is selected moves selection to the next candidate in the list; pressing Up arrow moves to the previous. If a loop is currently playing and the selection changes, the new candidate begins playing immediately.
 13. While a loop is playing, a moving playhead indicator is visible on the waveform at the current read position, updating at least 30 times per second.
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-8: loop scheduling logic does not accumulate drift — given a synthetic sequence of scheduled wrap events, the computed loop start time remains constant across iterations
+
+### E2E (Playwright)
+- AC-1: clicking "Play" on a candidate card causes the "playing" indicator to appear within 100 ms
+- AC-4: clicking "Stop" removes the "playing" indicator immediately
+- AC-5: clicking "Play" on a second candidate while the first is playing causes the first indicator to disappear and the second to appear within 100 ms
+- AC-6: after stopping and clicking "Play" again, the "playing" indicator reappears without error
+- AC-7: only the currently playing candidate shows the "playing" indicator; all others show the "Play" button state
+- AC-9: after stop, `audioContext.state` is still `"running"` (verified via JS evaluation in Playwright)
+- AC-10: simulating autoplay-policy block (by not using the `--autoplay-policy=no-user-gesture-required` flag in a targeted test) causes a descriptive error message to appear
+- AC-11: pressing Space while the page is focused toggles the "playing" indicator on the selected candidate
+- AC-12: pressing Down arrow moves the visual selection highlight to the next candidate; if playing, the new candidate's "playing" indicator appears
+- AC-13: while a loop is playing, a moving vertical line is visible on the waveform canvas updating at least 30 times per second (measured via `requestAnimationFrame` timestamps captured in Playwright)
+
 ## Notes / Constraints
 
 > **Musician note:** A volume (gain) control for the audition output should be provided — not as a primary feature, but as a practical necessity. Musicians often audition samples while a DAW or other audio is playing in the background, and being able to quickly trim the loop volume prevents clipping or ear fatigue. A simple slider or knob that adjusts the `GainNode` gain (range 0.0–1.0, defaulting to 1.0) is sufficient. This does not affect the exported file — it is audition-only.

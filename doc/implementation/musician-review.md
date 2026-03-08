@@ -138,4 +138,6 @@ Manual loop point adjustment is the feature that separates a "useful demo" from 
 
 ### OQ-7: Where does the tempo field live in the UI?
 
-UC-006 specifies that the BPM input should be "close to the waveform or the candidate list" and not buried in settings. The exact placement is a design decision that affects the information hierarchy of the UI. Recommendation: place it directly above or below the waveform metadata line (sample rate, duration, channel count) as an inline label + number input. It should be visible without scrolling.
+**Resolved — see `doc/implementation/ui-layout-spec.md` (Header bar section).**
+
+The BPM input sits inline in the second row of the header bar, far-right, alongside the audio metadata line (sample rate, channels, duration). It is always visible without scrolling. Implementation: plain `<input type="number">` with a "BPM" label, 60px wide, styled with `--color-surface-raised` background and `--color-accent` border on focus.

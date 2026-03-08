@@ -90,6 +90,26 @@ The system rejects the new drop with an informational message ("Please wait — 
 9. The application displays the drop zone in a visually distinct "drag-active" state while a file is being dragged over it, and reverts to the default state when the drag leaves or is cancelled.
 10. If `decodeAudioData` rejects, the application shows an error message and does not attempt to proceed to waveform visualization or loop detection.
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-3: pure MIME-type validation logic rejects non-audio types and accepts the supported set
+- AC-4: file-size guard function returns an error result when `file.size > 157_286_400`
+- AC-4: file-size guard function returns success for a file exactly at the 150 MB boundary
+
+### E2E (Playwright)
+- AC-1: drop a valid WAV fixture → app reaches "audio-loaded" state within 5 seconds
+- AC-2: drop a valid AIFF/MP3/OGG/FLAC fixture → same "audio-loaded" outcome as WAV
+- AC-3: drop a `.txt` file → error message appears and drop zone returns to ready state within 200 ms
+- AC-4: attempt to drop a file reported as > 150 MB → error message appears before any file reading
+- AC-5: select a file via the OS file picker → same result as drag-and-drop for a valid WAV
+- AC-5: select an unsupported file via the file picker → same error as drag-and-drop for unsupported type
+- AC-6: after successful load, the original filename is visible in the UI
+- AC-7: while decoding is in progress, a second drop is rejected with an informational message
+- AC-8: drop a second valid file after a first is loaded → previous state is cleared before new file loads
+- AC-9: dragging a file over the drop zone applies a "drag-active" visual style; leaving or cancelling reverts it
+- AC-10: simulate a `decodeAudioData` rejection → error message shown, waveform and loop detection not triggered
+
 ## Notes / Constraints
 
 - The application must create a single shared `AudioContext` instance at startup and reuse it throughout the session. Do not create a new `AudioContext` per file load. Browser policy may suspend the context; call `audioContext.resume()` before decoding if `audioContext.state === 'suspended'`.

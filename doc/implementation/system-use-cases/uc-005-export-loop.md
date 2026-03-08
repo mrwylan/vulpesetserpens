@@ -111,6 +111,27 @@ Export does not affect playback. The system reads from the stored `AudioBuffer` 
 13. The exported WAV file contains a valid `smpl` chunk. When the file is imported into a WAV-compatible sampler (e.g., Kontakt, Logic Pro Quick Sampler), the sampler automatically detects and applies the loop point without manual configuration.
 14. The `smpl` chunk's `Start` and `End` loop point values correspond to sample indices 0 and `loopLengthSamples - 1` respectively (relative to the start of the exported file's `data` chunk).
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-3: `encodeWAV` output `data` chunk size equals `loopLengthSamples * numChannels * 2` bytes for a synthetic mono buffer
+- AC-4: `encodeWAV` writes the correct sample rate in the `fmt ` chunk (little-endian uint32 at byte offset 24)
+- AC-5: `encodeWAV` writes the correct channel count in the `fmt ` chunk for a mono input and for a 2-channel input
+- AC-7: for a candidate with `crossfadeDuration > 0`, the last `crossfadeSamples` of the returned PCM data are a linear blend of the end and start regions (computed from synthetic Float32Arrays with known values)
+- AC-8: for a candidate with `crossfadeDuration === 0`, the exported PCM bytes are bit-identical to `Float32Array → int16` conversion of the source subarray
+- AC-14: `encodeWAV` output contains a valid `smpl` chunk with `Start = 0` and `End = loopLengthSamples - 1`
+- AC-6: filename-generation function produces `<base>_loop<rank>_<duration>s.wav` for known inputs; appends bar annotation when BPM is provided
+
+### E2E (Playwright)
+- AC-1: clicking "Export" triggers a file download within 2 seconds for a loop region up to 30 seconds
+- AC-2: the downloaded file is parseable as a WAV (RIFF header starts with `52 49 46 46`; `WAVE` at byte 8) — verified by reading download bytes in Playwright
+- AC-6: the downloaded filename matches the expected pattern for the given candidate rank and duration
+- AC-9: exporting while audio is playing (UC-004 active) does not interrupt playback — the "playing" indicator remains visible throughout the export
+- AC-10: after export, attempting to fetch the object URL returns a network error (URL revoked)
+- AC-11: clicking "Export" on two different candidates produces two separate downloaded files with different filenames
+- AC-12: when no candidate is selected and a global export button is present, the button has a `disabled` attribute and does not trigger a download on click
+- AC-13: the downloaded WAV file's binary content includes the 4-byte `smpl` chunk identifier (`73 6D 70 6C`) at the expected byte offset
+
 ## Notes / Constraints
 
 - WAV encoding runs on the main thread (it is synchronous and fast for the expected loop durations of under 60 seconds). For very long loops (approaching the 200 MB limit), consider offloading to a Web Worker using a transferable `ArrayBuffer`.

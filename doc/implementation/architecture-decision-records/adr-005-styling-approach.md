@@ -41,10 +41,11 @@ The visual theme is dark and atmospheric: a near-black background, muted warm ac
 
 ## Consequences
 
-- All design tokens (colours, spacing, typography, animation durations) are defined as CSS custom properties in `/src/styles/theme.css`. This file is imported once in the application root. No hardcoded colour values or magic numbers appear elsewhere in `.css` files.
+- All design tokens (colours, spacing, typography, animation durations) are defined as CSS custom properties in `src/styles/theme.css`. This file is imported once in the application root. No hardcoded colour values or magic numbers appear elsewhere in `.css` files.
+- **The canonical token values are defined in `doc/implementation/ui-layout-spec.md` (Design Tokens section).** That document is the single source of truth for token names and values. `src/styles/theme.css` must match it exactly. If a token value needs to change, update the UI spec first, then the CSS file.
 - Component-specific styles are in a `.css` file adjacent to the component file. The CSS file uses the component's name as the root class to establish a local scope by convention (e.g., `.WaveformCanvas`, `.CandidateList`).
-- Global resets and base typographic styles are in `/src/styles/global.css`, imported once in the application root alongside `theme.css`.
+- Global resets and base typographic styles are in `src/styles/global.css`, imported once in the application root alongside `theme.css`.
 - No inline `style` props are used in React components except for values that are genuinely dynamic and cannot be expressed as CSS custom property updates (e.g., a canvas element's computed width). Even then, prefer updating a CSS custom property on the element over a `style` prop where possible.
-- The colour palette is dark-first. The background is near-black (`#0d0d0d` or similar). Accent colours are warm (amber, ochre, or deep gold range). Text is off-white, not pure white. No light mode is implemented in v1.
-- Typography uses a single font pairing: a geometric or humanist sans-serif for UI labels and a monospaced font for numeric values (timestamps, sample counts, scores). Web-safe system fonts are preferred over web font imports to avoid additional network requests; if a web font is used, it must be loaded with `font-display: swap` and the fallback must be visually close to the loaded font.
+- The colour palette is dark-first: near-black background (`--color-bg: #09090f`), warm amber accent (`--color-accent: #f0a500`), off-white primary text. Each loop candidate has a dedicated colour slot (`--color-loop-1` through `--color-loop-6`+) used consistently across waveform overlays, candidate cards, and annotations. No light mode in v1.
+- Typography uses two fonts: a sans-serif for UI labels (`--font-ui`) and a monospaced font for numeric values (`--font-mono`). System font stacks are preferred over web font imports. If a web font is used, load it with `font-display: swap`.
 - No CSS preprocessor (Sass, Less, Stylus) is used. Plain CSS custom properties and `calc()` are sufficient for all dynamic value computation.

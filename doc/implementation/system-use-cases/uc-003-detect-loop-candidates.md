@@ -136,6 +136,27 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 10. Each candidate object contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`).
 11. Running detection a second time on the same file (e.g., after replacing and re-uploading the same file) produces the same ranked list (algorithm is deterministic).
 
+## Test Coverage
+
+### Unit (Vitest)
+- AC-3: zero-crossing detector returns indices where `samples[i-1] < 0 && samples[i] >= 0` for a synthetic sine wave
+- AC-3: zero-crossing detector treats an exact `0.0` sample as non-negative (upward crossing when previous sample < 0)
+- AC-1: on a synthetic sine with a known period (e.g., 44100 samples at 1 Hz), the top candidate duration is within ±50 ms of the true period
+- AC-2: composite score for a clean periodic signal is >= 0.7
+- AC-4: deduplication function removes candidates whose start and end are both within 50 ms of a higher-ranked entry
+- AC-5: ranking function returns at most 10 candidates
+- AC-10: each candidate object produced by the algorithm contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`)
+- AC-11: running the algorithm twice on the same Float32Array input produces identical ranked lists
+- AC-7: algorithm returns an empty list (or `lowConfidence: true` entries) for an all-zero Float32Array
+- AC-8: algorithm returns an empty list with reason code `"TOO_SHORT"` for a Float32Array shorter than 0.5 s at the given sample rate
+- Score weights sum to 1.0 (0.35 + 0.30 + 0.20 + 0.15 = 1.0)
+
+### E2E (Playwright)
+- AC-1: after uploading `sine-220hz-4s.wav` fixture, the top candidate duration is within ±50 ms of the known period
+- AC-6: detection completes and candidate cards appear within 10 seconds of upload for a 5-minute fixture
+- AC-7: uploading `noise-1s.wav` fixture results in an empty list or a low-confidence warning displayed in the UI
+- AC-9: candidate overlay regions appear on the waveform canvas immediately after the "candidates-ready" event (verified by observing DOM changes)
+
 ## Notes / Constraints
 
 - The detection algorithm runs in a dedicated Web Worker. The `AudioBuffer` cannot be transferred directly to a worker (it is not transferable). Instead, call `audioBuffer.getChannelData(i)` for each channel on the main thread and transfer the resulting `Float32Array` buffers using the structured-clone transfer list: `worker.postMessage({ channels: [...channelArrays] }, channelArrays.map(a => a.buffer))`.

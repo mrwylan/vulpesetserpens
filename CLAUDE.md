@@ -26,6 +26,7 @@ Before implementing any feature, read the relevant documents in this order:
 | Feature specifications | `doc/implementation/system-use-cases/` |
 | UI layout and design tokens | `doc/implementation/ui-layout-spec.md` |
 | Testing strategy and enforcement | `doc/implementation/architecture-decision-records/adr-007-testing-strategy.md` |
+| Dependency management policy | `doc/implementation/architecture-decision-records/adr-009-dependency-management-policy.md` |
 | Project file structure | `doc/implementation/project-structure.md` |
 | Test fixture sources and license provenance | `tests/fixtures/SOURCES.md` |
 
@@ -63,6 +64,8 @@ A feature is **not complete** until:
 
 ## Key constraints
 
+- **Before starting any feature**, run `npm audit --audit-level=high` — block on failures (see ADR-009)
+- **Dependency upgrades are isolated** — never mix a package bump with feature or fix commits
 - **No `any` in TypeScript** without an explicit comment explaining why
 - **No hardcoded colour values or magic numbers** in CSS — use tokens from `src/styles/theme.css`
 - **No new npm dependencies** without justification — prefer native browser APIs

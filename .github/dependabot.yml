@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+      vite:
+        patterns: ["vite", "@vitejs/*"]
+      typescript:
+        patterns: ["typescript", "@types/*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

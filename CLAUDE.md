@@ -87,6 +87,16 @@ See `doc/implementation/project-structure.md` for the full tree. Key rules:
 
 ---
 
+## Available skills
+
+Project-level skills live in `.claude/skills/`. Invoke with `/skill-name` or let Claude load them automatically when relevant.
+
+| Skill | When to use |
+|-------|-------------|
+| `tdd-workflow` | Implementing any use case — enforces Red-Green-Refactor cycle |
+| `react-component` | Creating any new component in `src/components/` |
+| `web-audio-patterns` | Anything touching AudioContext, AudioBuffer, or the analysis worker |
+
 ## Running the project
 
 ```sh

@@ -1,0 +1,17 @@
+.WaveformCanvas {
+  position: relative;
+  width: 100%;
+  background-color: var(--color-surface);
+  padding: 0 var(--space-4);
+}
+
+.WaveformCanvas__canvas {
+  display: block;
+  width: 100%;
+  height: var(--waveform-height);
+  cursor: default;
+}
+
+.WaveformCanvas__canvas--dragging {
+  cursor: ew-resize;
+}

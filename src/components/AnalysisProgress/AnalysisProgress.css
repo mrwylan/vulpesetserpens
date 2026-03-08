@@ -1,0 +1,37 @@
+.AnalysisProgress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-4) 0;
+  gap: var(--space-3);
+}
+
+.AnalysisProgress__divider {
+  width: 100%;
+  height: 1px;
+  border: none;
+  border-top: 1px dashed var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+.AnalysisProgress__message {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.AnalysisProgress__spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

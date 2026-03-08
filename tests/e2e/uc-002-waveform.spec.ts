@@ -1,7 +1,8 @@
 import { test, expect, Page } from '@playwright/test'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-const fixturesDir = path.join(__dirname, '..', 'fixtures')
+const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures')
 
 async function uploadFile(page: Page, filename: string) {
   const fileInput = page.locator('input[type="file"]')

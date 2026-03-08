@@ -21,7 +21,7 @@ COPY tsconfig.node.json .
 RUN npm run build
 
 # Stage 2 — Serve
-FROM nginx:1.27-alpine AS serve
+FROM nginx:1.29-alpine AS serve
 
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html

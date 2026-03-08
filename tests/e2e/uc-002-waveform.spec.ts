@@ -21,15 +21,17 @@ test.describe('UC-002: Visualize Waveform', () => {
     await uploadFile(page, 'sine-440hz-2s.wav')
     await expect(page.locator('.WaveformCanvas canvas')).toBeVisible({ timeout: 5000 })
 
-    const { canvasWidth, clientWidth, dpr } = await page.evaluate(() => {
+    // setupCanvas sets canvas.style.width = cssWidth px and canvas.width = round(cssWidth * dpr)
+    // Use style.width (the intended CSS width) not clientWidth (which can differ due to layout)
+    const { canvasWidth, styleWidth, dpr } = await page.evaluate(() => {
       const canvas = document.querySelector('.WaveformCanvas canvas') as HTMLCanvasElement
       return {
         canvasWidth: canvas.width,
-        clientWidth: canvas.clientWidth,
+        styleWidth: parseInt(canvas.style.width, 10),
         dpr: window.devicePixelRatio,
       }
     })
-    expect(Math.abs(canvasWidth - Math.round(clientWidth * dpr))).toBeLessThanOrEqual(1)
+    expect(Math.abs(canvasWidth - Math.round(styleWidth * dpr))).toBeLessThanOrEqual(1)
   })
 
   test('AC-7: resizing browser window causes canvas to redraw', async ({ page }) => {

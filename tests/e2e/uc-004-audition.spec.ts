@@ -65,8 +65,8 @@ test.describe('UC-004: Audition Loop', () => {
     const firstCard = page.locator('.CandidateCard').first()
     const playBtn = firstCard.locator('.CandidateCard__playBtn')
 
-    // Focus the page body so keyboard shortcuts work
-    await page.locator('body').click()
+    // Click the waveform canvas — inert area that won't focus a button
+    await page.locator('.WaveformCanvas canvas').click({ position: { x: 5, y: 5 } })
 
     await page.keyboard.press('Space')
     await expect(playBtn).toHaveClass(/CandidateCard__playBtn--playing/, { timeout: 300 })
@@ -86,7 +86,8 @@ test.describe('UC-004: Audition Loop', () => {
     // First card should be selected initially
     await expect(cards.nth(0)).toHaveClass(/CandidateCard--selected/)
 
-    await page.locator('body').click()
+    // Click the waveform canvas — inert area that won't focus a button
+    await page.locator('.WaveformCanvas canvas').click({ position: { x: 5, y: 5 } })
     await page.keyboard.press('ArrowDown')
 
     // Second card should now be selected

@@ -49,11 +49,16 @@ test.describe('UC-001: Upload Audio File', () => {
 
   test('AC-9: drag-over state applies distinct visual style', async ({ page }) => {
     const dropZone = page.locator('.DropZone__target')
-    // Simulate drag enter
-    await dropZone.dispatchEvent('dragover', { dataTransfer: { files: [] } })
+    // Must create a real DataTransfer object in the page context
+    await page.evaluate(() => {
+      const el = document.querySelector('.DropZone__target')!
+      el.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }))
+    })
     await expect(dropZone).toHaveClass(/DropZone__target--drag-over/)
-    // Simulate drag leave
-    await dropZone.dispatchEvent('dragleave', {})
+    await page.evaluate(() => {
+      const el = document.querySelector('.DropZone__target')!
+      el.dispatchEvent(new DragEvent('dragleave', { bubbles: true }))
+    })
     await expect(dropZone).not.toHaveClass(/DropZone__target--drag-over/)
   })
 

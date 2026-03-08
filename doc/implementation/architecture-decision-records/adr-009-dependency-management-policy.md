@@ -19,6 +19,8 @@ After the initial implementation, `npm outdated` reveals several packages that h
 | `@types/react` / `@types/react-dom` | 18.x | 19.x | Types — major |
 | Node.js base image (`node:20-alpine`) | LTS 20 | LTS 22 | Runtime — major |
 
+GitHub Actions versions (`actions/checkout`, `docker/build-push-action`, etc.) are a separate dependency surface. They follow the same drift risk: pinning to a major tag (`@v4`) silently receives no updates to newer majors, and security advisories are issued against action versions just as they are for npm packages.
+
 Stale major versions produce deprecation warnings in `npm install` output, in CI logs, and occasionally in `npm run build`. They accumulate security surface over time and make future major upgrades harder (multiple versions of drift compound breaking changes).
 
 `npm audit` currently reports **0 vulnerabilities**. The risk today is low, but the pattern of ignoring outdated dependencies leads to progressively harder upgrades and surprise breakage when a transitive dependency drops support for an old major.
@@ -55,11 +57,13 @@ One PR per update batch. Never bundle a dependency bump with a feature change.
 
 A Dependabot configuration is added to the repository to automate PR creation for outdated dependencies. Dependabot runs weekly. PRs are reviewed like any other code change — they must pass CI before merge.
 
+Three dependency surfaces are tracked:
+
 ```yaml
 # .github/dependabot.yml
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: npm        # package.json dependencies
     directory: /
     schedule:
       interval: weekly
@@ -73,14 +77,20 @@ updates:
       typescript:
         patterns: ["typescript", "@types/*"]
 
-  - package-ecosystem: docker
+  - package-ecosystem: docker     # Dockerfile base images
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+
+  - package-ecosystem: github-actions   # .github/workflows action versions
     directory: /
     schedule:
       interval: weekly
       day: monday
 ```
 
-Grouping related packages (e.g., all `@vitest/*` together) avoids fragmented PRs for ecosystems that must be updated in lockstep.
+Grouping related packages (e.g., all `@vitest/*` together) avoids fragmented PRs for ecosystems that must be updated in lockstep. GitHub Actions are tracked individually since they rarely require lockstep updates.
 
 ### 5. Major version upgrade process
 

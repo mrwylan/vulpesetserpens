@@ -2,6 +2,18 @@
 
 This folder contains implementation-level use case documents. Each file describes a discrete feature or capability of the application in enough detail for a coding agent to implement it correctly and completely.
 
+## Index
+
+| ID | Title | Status |
+|----|-------|--------|
+| UC-001 | Upload Audio File | Accepted |
+| UC-002 | Visualize Waveform | Accepted |
+| UC-003 | Detect Loop Candidates | Accepted |
+| UC-004 | Audition Loop | Accepted |
+| UC-005 | Export Loop | Accepted |
+| UC-006 | Set Tempo Reference | Accepted |
+| UC-007 | Adjust Loop Points Manually | Accepted |
+
 ## Purpose
 
 Use case documents bridge the business goals (see `doc/business/`) and the actual code. They answer:

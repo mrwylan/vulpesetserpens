@@ -7,7 +7,9 @@ Goals are broken into product goals (what the application must achieve) and expe
 ## Product Goals
 
 ### G1 — Audio upload and decoding
-The user can drag-and-drop or select a WAV file (and ideally MP3/OGG/FLAC). The application decodes it entirely in the browser using the Web Audio API. No server upload required.
+The user can drag-and-drop or select a WAV or AIFF file (and ideally MP3/OGG/FLAC). The application decodes it entirely in the browser using the Web Audio API. No server upload required.
+
+> **Musician note:** AIFF is as common as WAV in Mac-based production workflows. Logic Pro, GarageBand, and most hardware recorders default to AIFF. Treating it as an afterthought ("ideally") is the wrong framing — WAV and AIFF should both be listed as primary supported formats.
 
 ### G2 — Waveform visualization
 The decoded audio is displayed as a waveform. The visualization is clear, responsive, and updates to reflect detected loop regions once analysis is complete.
@@ -44,8 +46,11 @@ The entire application runs in a modern browser. No backend, no plugins, no Elec
 
 ## Out of Scope (v1)
 
-- BPM detection or beat-grid alignment
+- Automatic BPM detection
+- Beat-grid alignment or time-stretching
 - Multi-track or stem analysis
 - Cloud storage or project saving
 - Mobile-optimized layout (desktop-first for v1)
 - Collaboration or sharing features
+
+> **Musician note:** Automatic BPM detection is out of scope, but user-supplied BPM input (a simple number field) is low-cost and high-value. A musician typing "120" into a tempo field unlocks musically-aware loop duration scoring and bar-count annotations on candidates and filenames. This is not BPM detection — it is BPM input — and the distinction matters. Consider moving "user-supplied BPM hint" into scope for v1 as a lightweight input, even if automated detection remains out of scope. See UC-006.

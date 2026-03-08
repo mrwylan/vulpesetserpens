@@ -28,6 +28,27 @@ Use case documents bridge the business goals (see `doc/business/`) and the actua
 - File names use kebab-case and reflect the use case action: `uc-upload-audio-file.md`, `uc-detect-loop-candidates.md`, etc.
 - Each document follows the structure below
 
+## Definition of Done
+
+A use case is **not complete** until every item below is satisfied:
+
+1. The feature works correctly in the browser
+2. Every acceptance criterion in the use case document has a corresponding passing automated test
+3. Unit tests cover pure functions (`src/audio/`) — see ADR-007 for the 80% threshold
+4. E2E tests (Playwright) cover the primary user flow and at least one failure/error case
+5. The CI pipeline passes on the implementing branch
+
+Acceptance criteria are the contract between the use case document and the test suite. If a criterion cannot be tested, it must be rewritten until it can.
+
+## Test Coverage Reference
+
+| Layer | Tool | Scope | Enforced by |
+|-------|------|-------|-------------|
+| Unit | Vitest | Pure functions in `src/audio/` | Husky pre-push + CI |
+| E2E | Playwright | Full user flows, all UC acceptance criteria | CI |
+
+See ADR-007 for the full testing strategy, fixture conventions, and CI pipeline specification.
+
 ## Use Case Template
 
 ```
@@ -50,6 +71,12 @@ What can go wrong and how the system should respond.
 
 ## Acceptance Criteria
 Testable statements that define "done".
+Each criterion must be automatable — if it cannot be expressed as a Vitest or Playwright assertion, rewrite it.
+
+## Test Coverage
+Which test layer covers each acceptance criterion:
+- Unit (Vitest): list criteria covered by unit tests
+- E2E (Playwright): list criteria covered by E2E tests
 
 ## Notes / Constraints
 Technical constraints, performance requirements, or implementation hints.

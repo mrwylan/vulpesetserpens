@@ -23,9 +23,15 @@ const CROSSFADE_THRESHOLD = 0.7
 const CROSSFADE_DURATION = 0.01  // 10ms
 const ANALYSIS_WINDOW_SECONDS = 10
 // Downsample to this rate before autocorrelation. Loop periods are measured in
-// seconds, so ~4 kHz gives more than enough temporal resolution while reducing
-// autocorrelation cost by (sampleRate/CORR_RATE)² — about 120× for 44100 Hz.
-const CORR_RATE = 4000  // Hz
+// seconds, so ~400 Hz gives more than enough temporal resolution while reducing
+// autocorrelation cost by (sampleRate/CORR_RATE)² — about 12000× for 44100 Hz.
+// Lower rate also naturally suppresses signal-frequency harmonics (e.g. 220 Hz
+// sine aliases to near-DC at 400 Hz, so it only creates ~1 autocorrelation peak
+// per musical period instead of hundreds of harmonic peaks).
+const CORR_RATE = 400   // Hz
+// Maximum number of preferred lengths passed to Phase 4 scoring.
+// Prevents combinatorial explosion when autocorrelation finds many harmonics.
+const MAX_PREFERRED_LENGTHS = 16
 
 type ProgressCallback = (phase: string) => void
 
@@ -109,8 +115,17 @@ export function detectLoops(
     correlationValues = corrResult.values
     corrMinLag = Math.round(corrResult.minLag * downsample)
 
+    // Sort preferred lengths by correlation strength (descending) and cap.
+    // Without this, a pure-tone input can produce hundreds of harmonic peaks
+    // (one per period multiple), causing O(N²) explosion in Phase 4.
+    const topLengths = corrResult.preferredLengths
+      .map(l => ({ l, v: corrResult.values[l - corrResult.minLag] ?? 0 }))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, MAX_PREFERRED_LENGTHS)
+      .map(x => x.l)
+
     // Scale detected periods back to full sample rate
-    const scaledLengths = corrResult.preferredLengths.map(l => Math.round(l * downsample))
+    const scaledLengths = topLengths.map(l => Math.round(l * downsample))
 
     if (preferredLengths.length === 0) {
       preferredLengths = scaledLengths

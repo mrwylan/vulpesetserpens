@@ -27,6 +27,7 @@ Before implementing any feature, read the relevant documents in this order:
 | UI layout and design tokens | `doc/implementation/ui-layout-spec.md` |
 | Testing strategy and enforcement | `doc/implementation/architecture-decision-records/adr-007-testing-strategy.md` |
 | Project file structure | `doc/implementation/project-structure.md` |
+| Test fixture sources and license provenance | `tests/fixtures/SOURCES.md` |
 
 ---
 

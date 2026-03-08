@@ -90,11 +90,15 @@ src/
 
 ```
 tests/
-├── fixtures/                        # Synthetic WAV files for Playwright
-│   ├── sine-440hz-2s.wav            # Standard upload/decode test
-│   ├── sine-220hz-4s.wav            # Loop detection (multiple candidate pairs)
-│   ├── noise-1s.wav                 # Edge case: low-quality candidates
-│   └── stereo-sine-2s.wav           # Stereo decode / mono downmix
+├── fixtures/                        # WAV files for tests and algorithm calibration
+│   ├── SOURCES.md                   # License provenance — update when adding any file
+│   ├── sine-440hz-2s.wav            # Synthetic — standard upload/decode test
+│   ├── sine-220hz-4s.wav            # Synthetic — loop detection, multiple candidate pairs
+│   ├── noise-1s.wav                 # Synthetic — edge case: low-quality candidates
+│   ├── stereo-sine-2s.wav           # Synthetic — stereo decode / mono downmix
+│   ├── silent-0.3s.wav              # Synthetic — file too short edge case
+│   ├── dc-offset-2s.wav             # Synthetic — no zero-crossings edge case
+│   └── rw-*.wav                     # Real-world CC0/CC-BY samples (see SOURCES.md)
 │
 └── e2e/                             # Playwright E2E tests
     ├── uc-001-upload.spec.ts

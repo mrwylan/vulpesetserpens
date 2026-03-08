@@ -7,7 +7,7 @@
 
 export interface AutocorrelationResult {
   /** Array of normalized correlation values indexed by lag (starting from minLag) */
-  values: Float32Array
+  values: Float32Array<ArrayBuffer>
   /** The starting lag index (samples) */
   minLag: number
   /** The ending lag index (samples, exclusive) */

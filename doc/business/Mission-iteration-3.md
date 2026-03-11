@@ -8,9 +8,9 @@ Iterations 1 and 2 build a technically correct, production-ready loop finder. It
 
 ## Context
 
-The vision for Vulpesetserpens states that the tool should feel like an instrument, not a utility. Iteration 1 ships a working tool with a dark aesthetic. That is the foundation. Iteration 3 is where that aesthetic becomes a considered, cohesive design — where interactions feel immediate and spatial, where the musician's attention is never fragmented, and where the visual language reinforces what the tool does rather than just containing it.
+The vision for Vulpesetserpens states that the tool should feel like an instrument, not a utility. Iteration 1 ships a working tool with a dark aesthetic. That is the foundation. Iteration 3 is where that aesthetic becomes a considered, cohesive design — where interactions feel immediate and spatial, where the creator's attention is never fragmented, and where the visual language reinforces what the tool does rather than just containing it.
 
-This iteration addresses UX gaps identified in the musician review (OQ-5, OQ-6 drag refinement, OQ-7) and goes further, treating the entire interface as a creative surface.
+This iteration addresses UX gaps identified in the creator review (OQ-5, OQ-6 drag refinement, OQ-7) and goes further, treating the entire interface as a creative surface.
 
 ---
 
@@ -25,7 +25,7 @@ Offer an optional dual-channel (L/R stacked) waveform view for stereo files. Man
 Redesign the candidate list to support fast, focused comparison. Key improvements:
 
 - **Keyboard-first navigation**: Space to play/stop, Up/Down arrows to cycle candidates with instant auto-play, number keys 1–9 to jump to a specific candidate directly
-- **Visual candidate differentiation**: each candidate is assigned a distinct colour that appears consistently in the waveform overlay, the candidate card, and the waveform export annotation — so the musician can track "candidate 3" visually across the full interface without reading labels
+- **Visual candidate differentiation**: each candidate is assigned a distinct colour that appears consistently in the waveform overlay, the candidate card, and the waveform export annotation — so the creator can track "candidate 3" visually across the full interface without reading labels
 - **Side-by-side waveform previews**: each candidate card shows a small waveform thumbnail of the loop region, not just a duration number — the producer can see the shape of each candidate before playing it
 
 ### M3-G3 — Refined loop boundary interaction (drag to adjust)
@@ -68,7 +68,7 @@ Establish a solid accessibility and responsiveness foundation:
 
 1. **Atmosphere before decoration.** Every visual element earns its place by either conveying information or reinforcing the emotional register of the tool. No decorative elements that do not contribute to either.
 2. **Sound and image move together.** Playback state should always be visible in the waveform. The waveform should always reflect what is playing. There is no gap between the visual representation and the audible reality.
-3. **The fastest path is always available.** A musician should never need more than two interactions to hear a loop candidate. Drop file → press Space. That path must remain unobstructed regardless of what other UI elements are present.
+3. **The fastest path is always available.** A creator should never need more than two interactions to hear a loop candidate. Drop file → press Space. That path must remain unobstructed regardless of what other UI elements are present.
 
 ---
 
@@ -83,4 +83,4 @@ Establish a solid accessibility and responsiveness foundation:
 
 ## Success Condition
 
-A musician who has never seen the tool can drop a sample, identify the best loop candidate, refine it, and export it — entirely by feel, without reading documentation. A musician who uses the tool regularly describes it as part of their creative process, not as a utility they tolerate.
+Any creator — sound designer, musician, or producer — who has never seen the tool can drop a sample, identify the best loop candidate for their purpose, refine it, and export it — entirely by feel, without reading documentation. A creator who uses the tool regularly describes it as part of their creative process, not as a utility they tolerate.

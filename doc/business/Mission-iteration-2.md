@@ -1,14 +1,14 @@
-# Mission — Iteration 2: Technical Producer Alignment
+# Mission — Iteration 2: Creator-Ready Output
 
-**Iteration theme: Make the output production-ready.**
+**Iteration theme: Make the output immediately usable.**
 
-The first iteration delivers a working loop finder. Iteration 2 makes the exported results immediately usable in a professional production environment — without manual cleanup in a DAW. Every feature in this iteration removes a step that currently sits between the tool's output and the producer's workflow.
+The first iteration delivers a working loop finder. Iteration 2 makes the exported results immediately usable across all three creator profiles — without manual cleanup in a DAW, a sampler editor, or an audio converter. Every feature in this iteration removes a step that currently sits between the tool's output and the creator's workflow.
 
 ---
 
 ## Context
 
-Iteration 1 establishes the core loop detection and export pipeline. Feedback from the musician review identified a set of gaps that are not UX problems — they are correctness problems from the perspective of a professional producer. A 16-bit-only WAV without sampler metadata, no AIFF support, and no way to refine a loop point manually means the tool produces results that require additional work before they are usable. Iteration 2 closes those gaps.
+Iteration 1 establishes the core loop detection and export pipeline. Feedback from the creator review identified a set of gaps that are not UX problems — they are correctness problems that affect all three creator profiles. A 16-bit-only WAV without sampler metadata, no AIFF support, and no way to refine a loop point manually means the tool produces results that require additional work before they are usable — in a sampler patch, in a DAW session, or in an arrangement. Iteration 2 closes those gaps.
 
 ---
 
@@ -24,7 +24,7 @@ Add AIFF as an export format option alongside WAV. AIFF is the default audio for
 
 ### M2-G3 — Manual loop point adjustment
 
-Implement UC-007: the ability to drag loop boundary markers on the waveform and refine the algorithm's output. The algorithm surfaces candidates; the producer decides whether they are correct. Without refinement, every result that is "close but not right" sends the musician back to their DAW. Iteration 2 ships at minimum the nudge controls (step-forward / step-backward by one zero-crossing), with drag-to-adjust following as the priority feature within this iteration. Zero-crossing snap must remain active during manual adjustment.
+Implement UC-007: the ability to drag loop boundary markers on the waveform and refine the algorithm's output. The algorithm surfaces candidates; the producer decides whether they are correct. Without refinement, every result that is "close but not right" sends the creator back to their DAW or sampler editor. Iteration 2 ships at minimum the nudge controls (step-forward / step-backward by one zero-crossing), with drag-to-adjust following as the priority feature within this iteration. Zero-crossing snap must remain active during manual adjustment.
 
 ### M2-G4 — Scoring weight calibration
 
@@ -47,4 +47,8 @@ Allow the producer to export all candidates (or a selected subset) in a single a
 
 ## Success Condition
 
-A professional producer can take a 24-bit stereo WAV or AIFF recording, run it through the tool, refine the best loop candidate using the nudge or drag controls, and export a 24-bit WAV (or AIFF) file that — when dropped directly into Kontakt, Ableton Simpler, Logic Quick Sampler, or a hardware sampler — automatically plays as a seamless loop with no manual configuration required.
+All three creator profiles can complete their workflow without leaving the tool:
+
+- A **sound designer** can load a 24-bit mono recording of a single sustained note, refine the sustain loop boundary to the exact zero-crossing they need, and export a 24-bit WAV that drops directly into Kontakt or a hardware sampler and loops seamlessly with no further editing.
+- A **musician** can load a stereo recording of an instrument phrase, identify the best note or chord candidate, refine the boundary, and export a WAV or AIFF ready to use as a one-shot or loop in their DAW of choice.
+- A **producer** can load a 24-bit stereo WAV or AIFF recording, refine the best bar-length loop candidate using the nudge or drag controls, and export a 24-bit file that — when dropped into Ableton Simpler, Logic Quick Sampler, or a hardware sampler — automatically plays as a seamless loop with no manual configuration required. When multiple usable loops exist in a single sample, all can be exported in one action.

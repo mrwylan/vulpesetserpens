@@ -3,11 +3,19 @@
  * All functions are pure — no side effects, no DOM access.
  */
 
-// Weight constants (must sum to 1.0)
+// Weight constants — beat-inactive formula (must sum to 1.0)
 export const WEIGHT_SHAPE  = 0.35
 export const WEIGHT_SLOPE  = 0.30
 export const WEIGHT_PERIOD = 0.20
 export const WEIGHT_ENERGY = 0.15
+
+// Weight constants — beat-active formula (must sum to 1.0)
+// Used when BPM is available and profile is producer or musician
+export const WEIGHT_BEAT_SHAPE  = 0.30
+export const WEIGHT_BEAT_SLOPE  = 0.25
+export const WEIGHT_BEAT_PERIOD = 0.15
+export const WEIGHT_BEAT_ENERGY = 0.10
+export const WEIGHT_BEAT_BEAT   = 0.20
 
 // Maximum expected slope for a typical audio signal (tunable constant)
 // At 44100 Hz, a 440 Hz sine has max slope ≈ 0.0627
@@ -173,7 +181,7 @@ export function computeEnergyScore(
 }
 
 /**
- * Composite score from all four sub-scores.
+ * Composite score from all four sub-scores (beat-inactive formula).
  */
 export function computeCompositeScore(
   shapeScore: number,
@@ -185,4 +193,50 @@ export function computeCompositeScore(
     + WEIGHT_SLOPE * slopeScore
     + WEIGHT_PERIOD * periodScore
     + WEIGHT_ENERGY * energyScore
+}
+
+/**
+ * Beat-alignment score S_beat (0.0 or 1.0).
+ *
+ * Returns 1.0 if both startTime and endTime fall within snapWindowSeconds
+ * of a beat position. Returns 0.0 otherwise.
+ *
+ * @param startTime - loop start in seconds
+ * @param endTime - loop end in seconds
+ * @param bpm - tempo in BPM
+ * @param snapWindowSeconds - how close to a beat boundary counts as "on beat"
+ */
+export function computeBeatScore(
+  startTime: number,
+  endTime: number,
+  bpm: number,
+  snapWindowSeconds: number
+): number {
+  const beatInterval = 60 / bpm
+
+  const startMod = startTime % beatInterval
+  const startDist = Math.min(startMod, beatInterval - startMod)
+
+  const endMod = endTime % beatInterval
+  const endDist = Math.min(endMod, beatInterval - endMod)
+
+  return startDist <= snapWindowSeconds && endDist <= snapWindowSeconds ? 1.0 : 0.0
+}
+
+/**
+ * Composite score including beat-alignment bonus (beat-active formula).
+ * Used when BPM is available and profile is producer or musician.
+ */
+export function computeCompositeScoreWithBeat(
+  shapeScore: number,
+  slopeScore: number,
+  periodScore: number,
+  energyScore: number,
+  beatScore: number
+): number {
+  return WEIGHT_BEAT_SHAPE  * shapeScore
+    + WEIGHT_BEAT_SLOPE  * slopeScore
+    + WEIGHT_BEAT_PERIOD * periodScore
+    + WEIGHT_BEAT_ENERGY * energyScore
+    + WEIGHT_BEAT_BEAT   * beatScore
 }

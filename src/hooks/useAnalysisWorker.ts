@@ -17,6 +17,7 @@ export interface AnalysisCallbacks {
 
 export interface AnalysisOptions {
   bpm?: number
+  creatorProfile?: import('../types').CreatorProfile
   minDuration?: number
   maxDuration?: number
 }
@@ -54,7 +55,7 @@ export function useAnalysisWorker() {
 
       const sampleRate = buffer.sampleRate
 
-      const { bpm, minDuration, maxDuration } = options
+      const { bpm, creatorProfile, minDuration, maxDuration } = options
 
       if (typeof Worker !== 'undefined') {
         // Use Web Worker for non-blocking analysis
@@ -103,15 +104,15 @@ export function useAnalysisWorker() {
             callbacks.onError(`Loop detection failed unexpectedly: ${event.message}`)
           }
 
-          worker.postMessage({ channels, sampleRate, bpm, minDuration, maxDuration }, transferList)
+          worker.postMessage({ channels, sampleRate, bpm, creatorProfile, minDuration, maxDuration }, transferList)
         } catch (_err) {
           // Worker creation failed — fall back to synchronous execution
-          runSynchronous(channels, sampleRate, { bpm, minDuration, maxDuration }, callbacks)
+          runSynchronous(channels, sampleRate, { bpm, creatorProfile, minDuration, maxDuration }, callbacks)
         }
       } else {
         // Web Worker not supported — fallback
         callbacks.onProgress('sync-fallback')
-        runSynchronous(channels, sampleRate, { bpm, minDuration, maxDuration }, callbacks)
+        runSynchronous(channels, sampleRate, { bpm, creatorProfile, minDuration, maxDuration }, callbacks)
       }
     },
     [cancel]

@@ -14,6 +14,7 @@ export interface LoopCandidate {
   slopeScore: number       // S_slope sub-score
   periodScore: number      // S_period sub-score
   energyScore: number      // S_energy sub-score
+  beatScore: number        // S_beat sub-score (0.0 or 1.0; 0.0 when beat alignment not applicable)
   crossfadeDuration: number // recommended crossfade in seconds (0 or 0.01)
   rank: number             // 1-based rank position
   lowConfidence: boolean   // true if score < 0.3 (best-available result)
@@ -63,6 +64,7 @@ export interface WorkerInput {
   bpm?: number
   minDuration?: number
   maxDuration?: number
+  creatorProfile?: CreatorProfile
 }
 
 export type CreatorProfile = 'sound-designer' | 'musician' | 'producer'

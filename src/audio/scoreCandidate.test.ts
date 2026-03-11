@@ -4,16 +4,28 @@ import {
   WEIGHT_SLOPE,
   WEIGHT_PERIOD,
   WEIGHT_ENERGY,
+  WEIGHT_BEAT_SHAPE,
+  WEIGHT_BEAT_SLOPE,
+  WEIGHT_BEAT_PERIOD,
+  WEIGHT_BEAT_ENERGY,
+  WEIGHT_BEAT_BEAT,
   computeShapeScore,
   computeSlopeScore,
   computeEnergyScore,
   computeCompositeScore,
+  computeCompositeScoreWithBeat,
   computePeriodScore,
+  computeBeatScore,
 } from './scoreCandidate'
 
 describe('score weights', () => {
-  it('all weights sum to 1.0', () => {
+  it('beat-inactive weights sum to 1.0', () => {
     const sum = WEIGHT_SHAPE + WEIGHT_SLOPE + WEIGHT_PERIOD + WEIGHT_ENERGY
+    expect(sum).toBeCloseTo(1.0)
+  })
+
+  it('beat-active weights sum to 1.0 (AC-15)', () => {
+    const sum = WEIGHT_BEAT_SHAPE + WEIGHT_BEAT_SLOPE + WEIGHT_BEAT_PERIOD + WEIGHT_BEAT_ENERGY + WEIGHT_BEAT_BEAT
     expect(sum).toBeCloseTo(1.0)
   })
 })
@@ -111,6 +123,57 @@ describe('computeCompositeScore', () => {
 
   it('returns 0.0 when all scores are 0.0', () => {
     expect(computeCompositeScore(0, 0, 0, 0)).toBeCloseTo(0.0)
+  })
+})
+
+describe('computeBeatScore', () => {
+  // BPM=120 → beat interval = 0.5 s
+
+  it('returns 1.0 when start and end land exactly on a beat (AC-12)', () => {
+    // startTime=0.0 → 0ms from beat 0; endTime=0.5 → 0ms from beat 1
+    expect(computeBeatScore(0.0, 0.5, 120, 0.005)).toBe(1.0)
+  })
+
+  it('returns 1.0 when within producer snap window (3ms ≤ 5ms) (AC-12)', () => {
+    expect(computeBeatScore(0.003, 0.503, 120, 0.005)).toBe(1.0)
+  })
+
+  it('returns 0.0 when outside producer snap window (10ms > 5ms) (AC-12)', () => {
+    expect(computeBeatScore(0.010, 0.510, 120, 0.005)).toBe(0.0)
+  })
+
+  it('returns 1.0 when within musician snap window (10ms ≤ 20ms) (AC-13)', () => {
+    expect(computeBeatScore(0.010, 0.510, 120, 0.020)).toBe(1.0)
+  })
+
+  it('returns 0.0 when outside musician snap window (25ms > 20ms)', () => {
+    expect(computeBeatScore(0.025, 0.525, 120, 0.020)).toBe(0.0)
+  })
+
+  it('returns 0.0 when only one boundary misses the snap window', () => {
+    // startTime on beat, endTime 10ms off — producer 5ms window → end fails
+    expect(computeBeatScore(0.0, 0.510, 120, 0.005)).toBe(0.0)
+  })
+
+  it('returns 0.0 for zero snap window', () => {
+    expect(computeBeatScore(0.001, 0.501, 120, 0.0)).toBe(0.0)
+  })
+})
+
+describe('computeCompositeScoreWithBeat', () => {
+  it('returns 1.0 when all scores are 1.0', () => {
+    expect(computeCompositeScoreWithBeat(1, 1, 1, 1, 1)).toBeCloseTo(1.0)
+  })
+
+  it('returns correct weighted average', () => {
+    const expected = 0.30 * 0.8 + 0.25 * 0.6 + 0.15 * 0.7 + 0.10 * 0.9 + 0.20 * 1.0
+    expect(computeCompositeScoreWithBeat(0.8, 0.6, 0.7, 0.9, 1.0)).toBeCloseTo(expected)
+  })
+
+  it('beat bonus lifts score above non-beat formula for same shape/slope/period/energy', () => {
+    const withBeat = computeCompositeScoreWithBeat(0.8, 0.8, 0.8, 0.8, 1.0)
+    const withoutBeat = computeCompositeScore(0.8, 0.8, 0.8, 0.8)
+    expect(withBeat).toBeGreaterThan(withoutBeat)
   })
 })
 

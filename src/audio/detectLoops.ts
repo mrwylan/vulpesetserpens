@@ -13,6 +13,8 @@ import {
   computePeriodScore,
   computeEnergyScore,
   computeCompositeScore,
+  computeBeatScore,
+  computeCompositeScoreWithBeat,
 } from './scoreCandidate'
 
 /** Absolute minimum — no profile can go below this (20 ms). */
@@ -56,8 +58,14 @@ export const PROFILE_CONFIGS: Record<CreatorProfile, ProfileConfig> = {
   },
 }
 
+/** Snap windows for beat-alignment scoring, in seconds. */
+const BEAT_SNAP_PRODUCER = 0.005  // 5 ms
+const BEAT_SNAP_MUSICIAN = 0.020  // 20 ms
+
 export interface DetectLoopsOptions {
   bpm?: number
+  /** Creator profile — determines beat snap window and composite formula. */
+  creatorProfile?: CreatorProfile
   /** Override default minDuration. Clamped to ABS_MIN_DURATION floor. */
   minDuration?: number
   /** Override default maxDuration. */
@@ -98,7 +106,7 @@ export function detectLoops(
   sampleRate: number,
   options: DetectLoopsOptions = {}
 ): DetectLoopsResult {
-  const { bpm, onProgress } = options
+  const { bpm, creatorProfile, onProgress } = options
   const minDuration = Math.max(ABS_MIN_DURATION, options.minDuration ?? DEFAULT_MIN_DURATION)
   const maxDurationOption = options.maxDuration ?? DEFAULT_MAX_DURATION
 
@@ -261,11 +269,21 @@ export function detectLoops(
         corrMinLag
       )
       const energyScore = computeEnergyScore(mono, startIdx, endIdx, sampleRate)
-      const score = computeCompositeScore(shapeScore, slopeScore, periodScore, energyScore)
 
       const startTime = startIdx / sampleRate
       const endTime = endIdx / sampleRate
       const duration = endTime - startTime
+
+      // Beat-alignment score (AC-12/13/14): only for producer/musician when BPM is set
+      let beatScore = 0.0
+      let score: number
+      if (bpm && bpm > 0 && (creatorProfile === 'producer' || creatorProfile === 'musician')) {
+        const snapWindow = creatorProfile === 'producer' ? BEAT_SNAP_PRODUCER : BEAT_SNAP_MUSICIAN
+        beatScore = computeBeatScore(startTime, endTime, bpm, snapWindow)
+        score = computeCompositeScoreWithBeat(shapeScore, slopeScore, periodScore, energyScore, beatScore)
+      } else {
+        score = computeCompositeScore(shapeScore, slopeScore, periodScore, energyScore)
+      }
 
       // Phase 5: crossfade recommendation
       const crossfadeDuration =
@@ -284,6 +302,7 @@ export function detectLoops(
         slopeScore,
         periodScore,
         energyScore,
+        beatScore,
         crossfadeDuration,
         rank: 0, // will be set after sorting
         lowConfidence: false, // will be set after threshold check

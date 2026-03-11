@@ -11,11 +11,12 @@ import { detectLoops } from '../audio/detectLoops'
 import type { WorkerInput, WorkerMessage } from '../types'
 
 self.onmessage = (event: MessageEvent<WorkerInput>) => {
-  const { channels, sampleRate, bpm, minDuration, maxDuration } = event.data
+  const { channels, sampleRate, bpm, minDuration, maxDuration, creatorProfile } = event.data
 
   try {
     const result = detectLoops(channels, sampleRate, {
       bpm,
+      creatorProfile,
       minDuration,
       maxDuration,
       onProgress: (phase: string) => {

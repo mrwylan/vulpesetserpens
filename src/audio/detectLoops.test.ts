@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectLoops, computeBarAnnotation, validateBpm } from './detectLoops'
+import { detectLoops, computeBarAnnotation, validateBpm, type DetectLoopsOptions } from './detectLoops'
 
 function syntheticSine(frequency: number, sampleRate: number, durationSeconds: number): Float32Array {
   const samples = new Float32Array(Math.round(sampleRate * durationSeconds))
@@ -27,7 +27,7 @@ describe('detectLoops', () => {
     expect(result.reasonCode).toBe('NO_CROSSINGS')
   })
 
-  it('returns candidates with all required fields', () => {
+  it('returns candidates with all required fields (AC-10)', () => {
     const sine = syntheticSine(10, sampleRate, 4)
     const result = detectLoops([sine], sampleRate)
     expect(result.candidates.length).toBeGreaterThan(0)
@@ -43,6 +43,7 @@ describe('detectLoops', () => {
     expect(typeof c.slopeScore).toBe('number')
     expect(typeof c.periodScore).toBe('number')
     expect(typeof c.energyScore).toBe('number')
+    expect(typeof c.beatScore).toBe('number')
     expect(typeof c.crossfadeDuration).toBe('number')
     expect(typeof c.rank).toBe('number')
     expect(typeof c.lowConfidence).toBe('boolean')
@@ -118,9 +119,17 @@ describe('detectLoops', () => {
     }
   })
 
-  it('score weights sum to 1.0', () => {
+  it('score weights sum to 1.0 (beat-inactive formula)', () => {
     const sum = 0.35 + 0.30 + 0.20 + 0.15
     expect(sum).toBeCloseTo(1.0)
+  })
+
+  it('beatScore is 0.0 for all candidates when no BPM provided (AC-15)', () => {
+    const sine = syntheticSine(10, sampleRate, 4)
+    const result = detectLoops([sine], sampleRate)
+    for (const c of result.candidates) {
+      expect(c.beatScore).toBe(0.0)
+    }
   })
 
   it('top candidate for sine wave scores well', () => {
@@ -198,6 +207,77 @@ describe('detectLoops — profile duration constraints', () => {
     const result = detectLoops([sine10], sampleRate, { minDuration: 0, maxDuration: 60.0 })
     for (const c of result.candidates) {
       expect(c.duration).toBeGreaterThanOrEqual(0.02 - 0.001)
+    }
+  })
+})
+
+// UC-003 M2-G7: beat-alignment scoring
+describe('detectLoops — beat-alignment scoring (UC-003 M2-G7)', () => {
+  const sampleRate = 2000
+  const bpm = 120  // beat interval = 0.5s
+
+  // 10 Hz sine, 4s: periods at 0.1s intervals; beat at 0.5s multiples
+  const sine10 = (() => {
+    const s = new Float32Array(sampleRate * 4)
+    for (let i = 0; i < s.length; i++) s[i] = Math.sin(2 * Math.PI * 10 * i / sampleRate)
+    return s
+  })()
+
+  it('AC-14: sound-designer profile — beatScore is always 0.0 even with BPM', () => {
+    const result = detectLoops([sine10], sampleRate, {
+      bpm,
+      creatorProfile: 'sound-designer',
+      minDuration: 0.02,
+      maxDuration: 1.0,
+    } as DetectLoopsOptions)
+    expect(result.candidates.length).toBeGreaterThan(0)
+    for (const c of result.candidates) {
+      expect(c.beatScore).toBe(0.0)
+    }
+  })
+
+  it('AC-12: producer profile — beatScore=1.0 for on-beat candidates, 0.0 for off-beat', () => {
+    const result = detectLoops([sine10], sampleRate, {
+      bpm,
+      creatorProfile: 'producer',
+      minDuration: 0.5,
+      maxDuration: 60.0,
+    } as DetectLoopsOptions)
+    const beatInterval = 60 / bpm  // 0.5s
+    const snapWindow = 0.005  // producer: 5ms
+
+    for (const c of result.candidates) {
+      const startDist = c.startTime % beatInterval
+      const endDist = c.endTime % beatInterval
+      const sd = Math.min(startDist, beatInterval - startDist)
+      const ed = Math.min(endDist, beatInterval - endDist)
+      const expectedBeat = sd <= snapWindow && ed <= snapWindow ? 1.0 : 0.0
+      expect(c.beatScore).toBe(expectedBeat)
+    }
+  })
+
+  it('AC-13: musician profile — wider snap window (20ms) vs producer (5ms)', () => {
+    // Verify detectLoops accepts creatorProfile='musician' without error
+    // and all candidates have beatScore field
+    const result = detectLoops([sine10], sampleRate, {
+      bpm,
+      creatorProfile: 'musician',
+      minDuration: 0.1,
+      maxDuration: 10.0,
+    } as DetectLoopsOptions)
+    expect(result.candidates.length).toBeGreaterThan(0)
+    for (const c of result.candidates) {
+      expect(typeof c.beatScore).toBe('number')
+      expect(c.beatScore === 0.0 || c.beatScore === 1.0).toBe(true)
+    }
+  })
+
+  it('AC-15: no BPM — beatScore is always 0.0 regardless of profile', () => {
+    for (const profile of ['sound-designer', 'musician', 'producer'] as const) {
+      const result = detectLoops([sine10], sampleRate, { creatorProfile: profile })
+      for (const c of result.candidates) {
+        expect(c.beatScore).toBe(0.0)
+      }
     }
   })
 })

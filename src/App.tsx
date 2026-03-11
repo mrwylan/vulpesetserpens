@@ -192,6 +192,7 @@ export default function App() {
           },
           {
             bpm: bpm ?? undefined,
+            creatorProfile: profile,
             minDuration: profileConfig.minDuration,
             maxDuration: profileConfig.maxDuration,
           }
@@ -304,6 +305,7 @@ export default function App() {
         },
         {
           bpm: bpm ?? undefined,
+          creatorProfile: newProfile,
           minDuration: profileConfig.minDuration,
           maxDuration: profileConfig.maxDuration,
         }

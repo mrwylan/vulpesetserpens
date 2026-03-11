@@ -355,8 +355,8 @@ export function WaveformCanvas({
         if (best >= 0) snappedSample = best
       }
 
-      // Enforce minimum loop duration (0.5s)
-      const minSamples = Math.round(0.5 * sampleRate)
+      // Enforce minimum loop duration (20 ms)
+      const minSamples = Math.round(0.02 * sampleRate)
       let newStart = candidate.startSample
       let newEnd = candidate.endSample
 

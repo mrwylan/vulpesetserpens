@@ -14,8 +14,8 @@ function syntheticSine(frequency: number, sampleRate: number, durationSeconds: n
 describe('detectLoops', () => {
   const sampleRate = 2000
 
-  it('returns TOO_SHORT for audio shorter than 0.5 seconds', () => {
-    const short = syntheticSine(10, sampleRate, 0.3)
+  it('returns TOO_SHORT for audio shorter than 20 ms (minDuration)', () => {
+    const short = syntheticSine(10, sampleRate, 0.01)  // 10 ms — below 20 ms floor
     const result = detectLoops([short], sampleRate)
     expect(result.candidates.length).toBe(0)
     expect(result.reasonCode).toBe('TOO_SHORT')
@@ -82,10 +82,10 @@ describe('detectLoops', () => {
     }
   })
 
-  it('no two candidates have start and end both within 50ms of each other', () => {
+  it('no two candidates have start and end both within 10ms of each other', () => {
     const sine = syntheticSine(10, sampleRate, 4)
     const result = detectLoops([sine], sampleRate)
-    const dedupTol = 0.05
+    const dedupTol = 0.01  // 10ms tolerance (matches DEDUP_TOLERANCE_SECONDS)
 
     for (let i = 0; i < result.candidates.length; i++) {
       for (let j = i + 1; j < result.candidates.length; j++) {
@@ -137,6 +137,24 @@ describe('detectLoops', () => {
     const right = syntheticSine(10, sampleRate, 4)
     const result = detectLoops([left, right], sampleRate)
     expect(result.candidates.length).toBeGreaterThan(0)
+  })
+
+  // AC-1a: micro-loop detectability — a 50 Hz sine at sampleRate=2000
+  // has period = 40 samples = 20 ms (exactly at minDuration floor).
+  // At least one candidate must be found within ±5 ms of the expected period.
+  it('AC-1a: detects micro-loop candidates near a 20 ms period (50 Hz sine)', () => {
+    // Use full sampleRate=2000; 50 Hz at 2000 Hz → period = 40 samples = 20 ms.
+    // Provide 0.5 s of audio (25 full cycles) so there are enough crossings to pair.
+    const sine50 = syntheticSine(50, sampleRate, 0.5)
+    const result = detectLoops([sine50], sampleRate)
+    expect(result.candidates.length).toBeGreaterThan(0)
+
+    const expectedPeriodSec = 1 / 50  // 20 ms
+    const toleranceSec = 0.005        // ±5 ms
+    const nearPeriod = result.candidates.some(
+      c => Math.abs(c.duration - expectedPeriodSec) <= toleranceSec
+    )
+    expect(nearPeriod).toBe(true)
   })
 })
 

@@ -17,6 +17,22 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs}`
 }
 
+/** Show ms for sub-second durations (sound-designer micro-loops), seconds otherwise. */
+function formatDuration(seconds: number): string {
+  if (seconds < 1) {
+    return `${Math.round(seconds * 1000)} ms`
+  }
+  return `${seconds.toFixed(3)} s`
+}
+
+/** Show times in ms for sub-second durations, mm:ss.mmm otherwise. */
+function formatTimeRange(startSec: number, endSec: number): string {
+  if (endSec < 1) {
+    return `${(startSec * 1000).toFixed(1)} – ${(endSec * 1000).toFixed(1)} ms`
+  }
+  return `${formatTime(startSec)} – ${formatTime(endSec)}`
+}
+
 interface CandidateCardProps {
   candidate: LoopCandidate
   isPlaying: boolean
@@ -115,11 +131,11 @@ export function CandidateCard({
       )}
 
       {/* Duration */}
-      <div className="CandidateCard__duration">{duration.toFixed(3)} s</div>
+      <div className="CandidateCard__duration">{formatDuration(duration)}</div>
 
       {/* Start–End times */}
       <div className="CandidateCard__times">
-        {formatTime(startTime)} – {formatTime(endTime)}
+        {formatTimeRange(startTime, endTime)}
       </div>
 
       {/* Nudge controls */}

@@ -15,10 +15,10 @@ import {
   computeCompositeScore,
 } from './scoreCandidate'
 
-const MIN_DURATION = 0.5   // seconds
+const MIN_DURATION = 0.02  // seconds — 20 ms minimum supports sound-designer micro-loops
 const MAX_DURATION = 60.0  // seconds
 const LOW_CONFIDENCE_THRESHOLD = 0.3
-const DEDUP_TOLERANCE_SECONDS = 0.05  // 50ms
+const DEDUP_TOLERANCE_SECONDS = 0.01  // 10ms — tight enough to distinguish adjacent micro-loop candidates
 const CROSSFADE_THRESHOLD = 0.7
 const CROSSFADE_DURATION = 0.01  // 10ms
 const ANALYSIS_WINDOW_SECONDS = 10
@@ -163,8 +163,9 @@ export function detectLoops(
         }
       }
     } else {
-      // No preferred lengths — sample regularly at 50ms intervals
-      const stepSamples = Math.round(0.05 * sampleRate)
+      // No preferred lengths — sample regularly at 5ms intervals
+      // Fine step (vs old 50ms) ensures micro-loop candidates (20–200ms) are reachable.
+      const stepSamples = Math.round(0.005 * sampleRate)
       endTargets = []
       for (let offset = minSamples; offset <= maxSamples; offset += stepSamples) {
         const candidate = startIdx + offset
@@ -247,7 +248,7 @@ export function detectLoops(
   // Sort by score descending
   candidates.sort((a, b) => b.score - a.score)
 
-  // Deduplicate: remove candidates whose start AND end are both within 50ms of a higher-ranked one
+  // Deduplicate: remove candidates whose start AND end are both within 10ms of a higher-ranked one
   const dedupedCandidates: LoopCandidate[] = []
   for (const c of candidates) {
     const duplicate = dedupedCandidates.some(

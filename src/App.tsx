@@ -135,7 +135,7 @@ export default function App() {
             onComplete: (candidates, upCrossings, reasonCode) => {
               let analysisWarning: string | undefined
               if (reasonCode === 'TOO_SHORT') {
-                analysisWarning = 'Audio is too short for loop detection (minimum 0.5 seconds).'
+                analysisWarning = 'Audio is too short for loop detection (minimum 20 ms).'
               } else if (reasonCode === 'NO_CROSSINGS') {
                 analysisWarning = 'No zero-crossings found. The audio may be DC-offset or silent.'
               } else if (reasonCode === 'LOW_CONFIDENCE') {
@@ -312,7 +312,7 @@ export default function App() {
         if (!candidate) return prev
         const newStart = nudgeZeroCrossing(candidate.startSample, prev.upCrossings, direction)
         const sampleRate = prev.buffer.sampleRate
-        const minSamples = Math.round(0.5 * sampleRate)
+        const minSamples = Math.round(0.02 * sampleRate)  // 20 ms floor
         if (newStart >= candidate.endSample - minSamples) return prev
 
         const startTime = newStart / sampleRate
@@ -347,7 +347,7 @@ export default function App() {
         if (!candidate) return prev
         const newEnd = nudgeZeroCrossing(candidate.endSample, prev.upCrossings, direction)
         const sampleRate = prev.buffer.sampleRate
-        const minSamples = Math.round(0.5 * sampleRate)
+        const minSamples = Math.round(0.02 * sampleRate)  // 20 ms floor
         if (newEnd <= candidate.startSample + minSamples) return prev
 
         const startTime = candidate.startSample / sampleRate

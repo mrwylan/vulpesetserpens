@@ -5,13 +5,27 @@
 
 ---
 
+## Creator Profiles
+
+This layout serves three distinct creator profiles with different working granularities. UI decisions must not privilege one profile at the expense of another:
+
+| Profile | Loop granularity | Key UI need |
+|---------|-----------------|-------------|
+| **Sound designer** | Micro-loops 20 ms – 200 ms (sustain phases, single cycles) | ms-precision duration display; BPM field irrelevant — can be ignored |
+| **Musician** | Note/chord loops 0.5 s – 5 s | Clean waveform overview; play-back comparison of candidates |
+| **Producer** | Bar/phrase loops 1 s – 30 s | BPM field prominent; bar-count annotations; batch export |
+
+Where a UI element serves only one profile (e.g. bar annotations for producers), it must gracefully disappear or stay invisible rather than clutter the interface for the other profiles.
+
+---
+
 ## Design Principles (implementation guidance)
 
 1. **Dark atmospheric base.** The background is near-black. Surfaces are dark purple-grey. Nothing competes with the waveform and the audio content.
 2. **Amber as the single accent.** One warm accent colour (amber/ochre) used sparingly — active states, primary actions, loop region highlights. No rainbow palette.
 3. **Typography carries hierarchy.** Size and weight do the work. Avoid decorative elements that do not carry information.
 4. **Waveform is the centrepiece.** It occupies the widest, most prominent region of the layout at all times once a file is loaded. Everything else orbits it.
-5. **Candidates are colour-coded, not numbered only.** Each loop candidate gets a consistent hue used in the waveform overlay, the card, and any annotation. The musician should be able to track "the teal loop" visually without reading.
+5. **Candidates are colour-coded, not numbered only.** Each loop candidate gets a consistent hue used in the waveform overlay, the card, and any annotation. The creator should be able to track "the teal loop" visually without reading.
 
 ---
 
@@ -214,7 +228,7 @@ vulpesetserpens            kick-loop.wav                    ✕  load new
 - Two rows, full width, `--color-surface` background, `--space-4` padding.
 - Row 1: app name (left, `--text-lg`, `--weight-bold`), filename (centre or right of name, `--text-sm`, `--color-text-secondary`), "✕ load new" link (far right, `--text-sm`, `--color-text-secondary`).
 - Row 2: audio metadata (left, `--font-mono`, `--text-xs`, `--color-text-secondary`), BPM input (far right, `--text-sm`).
-- BPM input: plain `<input type="number">`, 60px wide, `--color-surface-raised` background, `--color-border` border, `--color-accent` border on focus. Label "BPM" immediately to the left. Placeholder "—".
+- BPM input: plain `<input type="number">`, 60px wide, `--color-surface-raised` background, `--color-border` border, `--color-accent` border on focus. Label "BPM" immediately to the left. Placeholder "—". Always visible — producers and musicians use it frequently; sound designers can ignore it. Per UC-006: `min="20"`, `max="300"`, `step="0.5"`; validated in JS in addition to HTML attributes.
 
 ---
 
@@ -241,6 +255,7 @@ vulpesetserpens            kick-loop.wav                    ✕  load new
 
 ### Candidate card
 
+Producer / musician view (BPM set, durations ≥ 1 s):
 ```
 ┌───────────────────────┐
 │ ▌  #1           ████  │  ← colour strip (left), rank, score bar (right)
@@ -252,13 +267,24 @@ vulpesetserpens            kick-loop.wav                    ✕  load new
 └───────────────────────┘
 ```
 
+Sound designer view (BPM unset, micro-loop duration < 1 s):
+```
+┌───────────────────────┐
+│ ▌  #1           ████  │  ← colour strip (left), rank, score bar (right)
+│    22 ms              │  ← duration in ms, monospace
+│    45.1 – 45.1 ms     │  ← start – end in ms, monospace, secondary colour
+│                       │
+│    [▶  Play]   [↓]    │  ← play button (primary), export icon button
+└───────────────────────┘
+```
+
 - Fixed width: `--candidate-card-width`. Variable height.
 - Left edge: 4px colour strip using the candidate's `--color-loop-N`. This is the visual identity marker used across the card and the waveform overlay.
 - Rank label (`#1`, `#2`, …) in `--text-sm`, `--weight-bold`.
 - Score bar: a narrow horizontal bar (not a number) showing the composite score as a filled proportion. Fill colour matches the candidate colour.
-- Musical annotation row (BPM-dependent): `--text-sm`, `--color-text-secondary`. Hidden if no BPM is set.
-- Duration: `--font-mono`, `--text-base`, `--color-text-primary`.
-- Start–end: `--font-mono`, `--text-xs`, `--color-text-secondary`.
+- Musical annotation row (BPM-dependent): `--text-sm`, `--color-text-secondary`. Hidden if no BPM is set. Sound designers working with micro-loops (< 100 ms) typically leave BPM unset; this row is irrelevant to their workflow and its absence is correct.
+- Duration: `--font-mono`, `--text-base`, `--color-text-primary`. Display in seconds for durations ≥ 1 s (e.g. `2.000 s`); display in milliseconds for durations < 1 s (e.g. `22 ms`). This serves sound designers whose sustain loops are 20–200 ms.
+- Start–end: `--font-mono`, `--text-xs`, `--color-text-secondary`. Use the same unit as the duration display (ms or s) for consistency.
 - **Play button:** `--color-accent` background, `--color-bg` text, `--radius-sm`, `--space-2` padding. Label is "▶ Play" at rest; "■ Stop" while this candidate is playing. Pressing play on a different card stops the current playback.
 - **Export button:** icon-only (↓ or similar), `--color-surface-raised` background, `--color-border` border. Triggers UC-005 for this candidate only.
 - **Selected state:** card has `--color-border-strong` border and `--color-surface-raised` background. The corresponding waveform overlay brightens.
@@ -269,7 +295,7 @@ vulpesetserpens            kick-loop.wav                    ✕  load new
 
 ### Candidate grid layout
 
-- Cards flow in a horizontal scrollable row (single row, `overflow-x: auto`). No wrapping. This allows the musician to keep all candidates visible and scroll through them laterally without losing the vertical layout context.
+- Cards flow in a horizontal scrollable row (single row, `overflow-x: auto`). No wrapping. This allows the creator to keep all candidates visible and scroll through them laterally without losing the vertical layout context.
 - Scrollbar: styled thin, `--color-border` track, `--color-accent` thumb.
 - Gap between cards: `--space-3`.
 - The row has `--space-4` padding on both sides to prevent the first and last cards from touching the viewport edge.
@@ -288,7 +314,7 @@ Coding agents must implement these shortcuts globally (not requiring focus on a 
 | `,` / `.` | Nudge selected candidate's active boundary left / right by one zero-crossing (UC-007) |
 | `Escape` | Stop playback |
 
-Focus management: the page must have a logical focus order (header → waveform → BPM input → candidate cards). Keyboard shortcuts work regardless of current focus target to avoid requiring the musician to click a specific area first.
+Focus management: the page must have a logical focus order (header → waveform → BPM input → candidate cards). Keyboard shortcuts work regardless of current focus target to avoid requiring the creator to click a specific area first.
 
 ---
 

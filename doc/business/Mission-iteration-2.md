@@ -44,6 +44,18 @@ Analyze the audio to infer tempo automatically, removing the need for the creato
 
 Automatic detection is a must-have for iteration 2 because producers and beatmakers rarely know the exact BPM of a recorded or found sample, and requiring manual entry makes the BPM feature feel like a burden rather than a benefit. Detection turns it into a service.
 
+### M2-G7 — Beat-aligned loop boundaries for Producer and Musician profiles
+
+When a BPM value is available (detected automatically or entered manually) and the active profile is **Producer** or **Musician**, loop candidate start and end points must be quantized to — or strongly biased toward — beat positions in the detected grid. A loop that starts and ends on a beat plays back in phase when triggered in a DAW, sampler, or live performance context without any manual grid-alignment step by the creator.
+
+Concretely:
+- After BPM is established, compute a beat grid: `beatPositions[n] = n × (60 / BPM)` seconds, for n = 0, 1, 2, …
+- For Producer and Musician profiles, the scoring pipeline assigns a **beat-alignment bonus** to candidates whose `startSample` and `endSample` fall within a configurable snap window (≤ 10 ms) of a beat position. Candidates that land exactly on a beat rank higher than otherwise equivalent candidates that do not.
+- The snap window tightens to ≤ 5 ms for the Producer profile (bar-tight rhythmic loops) and is relaxed to ≤ 20 ms for the Musician profile (melodic phrasing is less grid-strict).
+- Beat alignment is **not applied** to the Sound Designer profile. Micro sustain loops exist within a single note's waveform; their loop boundaries are determined by zero-crossing quality alone, never by a rhythmic grid that has no meaning at that scale.
+
+This feature depends on M2-G6: beat alignment requires a BPM value. If no BPM is available the scoring falls back to the existing zero-crossing and waveform quality criteria for all profiles.
+
 ---
 
 ## What Iteration 2 Is Not
@@ -59,5 +71,5 @@ Automatic detection is a must-have for iteration 2 because producers and beatmak
 All three creator profiles can complete their workflow without leaving the tool:
 
 - A **sound designer** can load a 24-bit mono recording of a single sustained note, refine the sustain loop boundary to the exact zero-crossing they need, and export a 24-bit WAV that drops directly into Kontakt or a hardware sampler and loops seamlessly with no further editing.
-- A **musician** can load a stereo recording of an instrument phrase, identify the best note or chord candidate, refine the boundary, and export a WAV or AIFF ready to use as a one-shot or loop in their DAW of choice.
-- A **producer** can load a 24-bit stereo WAV or AIFF recording, see the tempo detected automatically, refine the best bar-length loop candidate using the nudge or drag controls, and export a 24-bit file that — when dropped into Ableton Simpler, Logic Quick Sampler, or a hardware sampler — automatically plays as a seamless loop with no manual configuration required. Each candidate is annotated with its bar count at the detected tempo. When multiple usable loops exist in a single sample, all can be exported in one action.
+- A **musician** can load a stereo recording of an instrument phrase, see the tempo detected automatically, and find that the top-ranked candidates already start and end at phrase boundaries that align with the beat grid — so the exported loop drops into a DAW session without a manual grid-align step. They can refine the boundary with nudge or drag and export a WAV or AIFF ready to use as a one-shot or loop.
+- A **producer** can load a 24-bit stereo WAV or AIFF recording, see the tempo detected automatically, and get a ranked candidate list whose boundaries are quantized to beat positions. The best bar-length loop candidate starts on beat 1 and ends cleanly on the downbeat of the following bar. They refine if needed, export a 24-bit file that — when dropped into Ableton Simpler, Logic Quick Sampler, or a hardware sampler — automatically plays as a seamless, in-phase loop with no manual configuration required. Each candidate is annotated with its bar count at the detected tempo. When multiple usable loops exist in a single sample, all can be exported in one action.

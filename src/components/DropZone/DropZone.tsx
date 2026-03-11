@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
+import type { CreatorProfile } from '../../types'
+import { ProfileSelector } from '../ProfileSelector/ProfileSelector'
 import './DropZone.css'
 
 const ACCEPTED_MIME_TYPES = new Set([
@@ -37,12 +39,14 @@ export function validateAudioFile(file: File): string | null {
 
 interface DropZoneProps {
   onFileSelected: (file: File) => void
+  profile: CreatorProfile
+  onProfileChange: (profile: CreatorProfile) => void
   isLoading?: boolean
   errorMessage?: string | null
   infoMessage?: string | null
 }
 
-export function DropZone({ onFileSelected, isLoading, errorMessage, infoMessage }: DropZoneProps) {
+export function DropZone({ onFileSelected, profile, onProfileChange, isLoading, errorMessage, infoMessage }: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -115,6 +119,8 @@ export function DropZone({ onFileSelected, isLoading, errorMessage, infoMessage 
     <div className="DropZone">
       <h1 className="DropZone__title">vulpesetserpens</h1>
       <p className="DropZone__tagline">find your perfect loop</p>
+
+      <ProfileSelector selected={profile} onChange={onProfileChange} />
 
       <label
         className={`DropZone__target${isDragOver ? ' DropZone__target--drag-over' : ''}`}

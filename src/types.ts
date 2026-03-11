@@ -61,7 +61,11 @@ export interface WorkerInput {
   channels: Float32Array[]
   sampleRate: number
   bpm?: number
+  minDuration?: number
+  maxDuration?: number
 }
+
+export type CreatorProfile = 'sound-designer' | 'musician' | 'producer'
 
 export interface PlaybackState {
   isPlaying: boolean

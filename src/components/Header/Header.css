@@ -63,11 +63,40 @@
   background-color: var(--color-surface-raised);
 }
 
+.Header__metaLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
 .Header__metadata {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
-  flex: 1;
+}
+
+.Header__profileBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-accent);
+  background: var(--color-accent-dim);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+
+.Header__profileBadge:hover {
+  background: color-mix(in srgb, var(--color-accent-dim) 70%, var(--color-accent) 30%);
+}
+
+.Header__profileBadge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .Header__bpmGroup {

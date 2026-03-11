@@ -15,10 +15,55 @@ import {
   computeCompositeScore,
 } from './scoreCandidate'
 
-const MIN_DURATION = 0.02  // seconds — 20 ms minimum supports sound-designer micro-loops
-const MAX_DURATION = 60.0  // seconds
+/** Absolute minimum — no profile can go below this (20 ms). */
+const ABS_MIN_DURATION = 0.02  // seconds
+const DEFAULT_MIN_DURATION = 0.02  // seconds — sound-designer micro-loop support
+const DEFAULT_MAX_DURATION = 60.0  // seconds
 const LOW_CONFIDENCE_THRESHOLD = 0.3
 const DEDUP_TOLERANCE_SECONDS = 0.01  // 10ms — tight enough to distinguish adjacent micro-loop candidates
+
+// ---------------------------------------------------------------------------
+// Creator profile configuration (UC-008)
+// ---------------------------------------------------------------------------
+
+export type CreatorProfile = 'sound-designer' | 'musician' | 'producer'
+
+export interface ProfileConfig {
+  label: string
+  description: string
+  minDuration: number
+  maxDuration: number
+}
+
+export const PROFILE_CONFIGS: Record<CreatorProfile, ProfileConfig> = {
+  'sound-designer': {
+    label: 'Sound Designer',
+    description: 'Micro sustain loops · 20 ms – 1 s',
+    minDuration: 0.02,
+    maxDuration: 1.0,
+  },
+  'musician': {
+    label: 'Musician',
+    description: 'Note & chord loops · 100 ms – 10 s',
+    minDuration: 0.1,
+    maxDuration: 10.0,
+  },
+  'producer': {
+    label: 'Producer',
+    description: 'Beat & phrase loops · 0.5 s – 60 s',
+    minDuration: 0.5,
+    maxDuration: 60.0,
+  },
+}
+
+export interface DetectLoopsOptions {
+  bpm?: number
+  /** Override default minDuration. Clamped to ABS_MIN_DURATION floor. */
+  minDuration?: number
+  /** Override default maxDuration. */
+  maxDuration?: number
+  onProgress?: ProgressCallback
+}
 const CROSSFADE_THRESHOLD = 0.7
 const CROSSFADE_DURATION = 0.01  // 10ms
 const ANALYSIS_WINDOW_SECONDS = 10
@@ -46,26 +91,28 @@ export interface DetectLoopsResult {
  *
  * @param channels - per-channel Float32Array buffers
  * @param sampleRate - audio sample rate
- * @param bpm - optional BPM reference for period scoring
- * @param onProgress - callback for progress updates
+ * @param options - optional configuration: bpm, minDuration, maxDuration, onProgress
  */
 export function detectLoops(
   channels: Float32Array[],
   sampleRate: number,
-  bpm?: number,
-  onProgress?: ProgressCallback
+  options: DetectLoopsOptions = {}
 ): DetectLoopsResult {
+  const { bpm, onProgress } = options
+  const minDuration = Math.max(ABS_MIN_DURATION, options.minDuration ?? DEFAULT_MIN_DURATION)
+  const maxDurationOption = options.maxDuration ?? DEFAULT_MAX_DURATION
+
   // === Phase 1: Preparation ===
   onProgress?.('mono mix')
   const mono = mixToMono(channels)
   const totalSamples = mono.length
   const audioDuration = totalSamples / sampleRate
 
-  const minSamples = Math.round(MIN_DURATION * sampleRate)
-  const maxDuration = Math.min(audioDuration, MAX_DURATION)
+  const minSamples = Math.round(minDuration * sampleRate)
+  const maxDuration = Math.min(audioDuration, maxDurationOption)
   const maxSamples = Math.round(maxDuration * sampleRate)
 
-  if (audioDuration < MIN_DURATION) {
+  if (audioDuration < minDuration) {
     return { candidates: [], upCrossings: [], reasonCode: 'TOO_SHORT' }
   }
 
@@ -108,8 +155,8 @@ export function detectLoops(
     for (let i = 0; i < monoDs.length; i++) monoDs[i] = mono[i * downsample]!
 
     const dsWindow = Math.min(monoDs.length, Math.round(ANALYSIS_WINDOW_SECONDS * corrSR))
-    const dsMin = Math.max(1, Math.round(MIN_DURATION * corrSR))
-    const dsMax = Math.min(monoDs.length, Math.round(Math.min(audioDuration, MAX_DURATION) * corrSR))
+    const dsMin = Math.max(1, Math.round(minDuration * corrSR))
+    const dsMax = Math.min(monoDs.length, Math.round(Math.min(audioDuration, maxDurationOption) * corrSR))
 
     const corrResult = computeAutocorrelation(monoDs, dsMin, dsMax, dsWindow)
     correlationValues = corrResult.values

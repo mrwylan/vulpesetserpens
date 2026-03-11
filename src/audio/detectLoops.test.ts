@@ -158,6 +158,50 @@ describe('detectLoops', () => {
   })
 })
 
+// UC-008: profile-specific duration constraints
+describe('detectLoops — profile duration constraints', () => {
+  const sampleRate = 2000
+  // 10 Hz sine, 4s: produces candidates from ~0.1s (multi-period) to ~3s range
+  const sine10 = (() => {
+    const s = new Float32Array(sampleRate * 4)
+    for (let i = 0; i < s.length; i++) s[i] = Math.sin(2 * Math.PI * 10 * i / sampleRate)
+    return s
+  })()
+
+  it('sound-designer profile: all candidates ≤ 1.0 s', () => {
+    const result = detectLoops([sine10], sampleRate, { minDuration: 0.02, maxDuration: 1.0 })
+    expect(result.candidates.length).toBeGreaterThan(0)
+    for (const c of result.candidates) {
+      expect(c.duration).toBeLessThanOrEqual(1.0 + 0.001)  // tiny floating-point tolerance
+    }
+  })
+
+  it('producer profile: all candidates ≥ 0.5 s', () => {
+    const result = detectLoops([sine10], sampleRate, { minDuration: 0.5, maxDuration: 60.0 })
+    expect(result.candidates.length).toBeGreaterThan(0)
+    for (const c of result.candidates) {
+      expect(c.duration).toBeGreaterThanOrEqual(0.5 - 0.001)
+    }
+  })
+
+  it('musician profile: all candidates in [0.1 s, 10.0 s]', () => {
+    const result = detectLoops([sine10], sampleRate, { minDuration: 0.1, maxDuration: 10.0 })
+    expect(result.candidates.length).toBeGreaterThan(0)
+    for (const c of result.candidates) {
+      expect(c.duration).toBeGreaterThanOrEqual(0.1 - 0.001)
+      expect(c.duration).toBeLessThanOrEqual(10.0 + 0.001)
+    }
+  })
+
+  it('ABS_MIN_DURATION floor enforced even when minDuration=0 requested', () => {
+    // Requesting minDuration=0 is clamped to 0.02s
+    const result = detectLoops([sine10], sampleRate, { minDuration: 0, maxDuration: 60.0 })
+    for (const c of result.candidates) {
+      expect(c.duration).toBeGreaterThanOrEqual(0.02 - 0.001)
+    }
+  })
+})
+
 describe('computeBarAnnotation', () => {
   it('returns "≈ 2 bars" for 4.0s at 120 BPM', () => {
     expect(computeBarAnnotation(4.0, 120)).toBe('≈ 2 bars')

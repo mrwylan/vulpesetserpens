@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import type { AudioFile } from '../../types'
-import { validateBpm } from '../../audio/detectLoops'
+import type { AudioFile, CreatorProfile } from '../../types'
+import { validateBpm, PROFILE_CONFIGS } from '../../audio/detectLoops'
 import './Header.css'
 
 function formatDuration(seconds: number): string {
@@ -18,11 +18,13 @@ function formatChannels(n: number): string {
 interface HeaderProps {
   audioFile: AudioFile
   bpm: number | null
+  profile: CreatorProfile
   onBpmChange: (bpm: number | null) => void
+  onProfileChange: (profile: CreatorProfile) => void
   onClose: () => void
 }
 
-export function Header({ audioFile, bpm, onBpmChange, onClose }: HeaderProps) {
+export function Header({ audioFile, bpm, profile, onBpmChange, onProfileChange, onClose }: HeaderProps) {
   const [bpmInputValue, setBpmInputValue] = useState(bpm !== null ? String(bpm) : '')
   const [bpmError, setBpmError] = useState<string | null>(null)
 
@@ -72,8 +74,21 @@ export function Header({ audioFile, bpm, onBpmChange, onClose }: HeaderProps) {
       </div>
 
       <div className="Header__row">
-        <div className="Header__metadata" data-testid="audio-metadata">
-          {metadata}
+        <div className="Header__metaLeft">
+          <span className="Header__metadata" data-testid="audio-metadata">{metadata}</span>
+          <button
+            className="Header__profileBadge"
+            onClick={() => {
+              const order: CreatorProfile[] = ['sound-designer', 'musician', 'producer']
+              const next = order[(order.indexOf(profile) + 1) % order.length]!
+              onProfileChange(next)
+            }}
+            title="Click to change creator profile (re-analyses current file)"
+            aria-label={`Active profile: ${PROFILE_CONFIGS[profile].label}. Click to change.`}
+            data-testid="profile-badge"
+          >
+            {PROFILE_CONFIGS[profile].label}
+          </button>
         </div>
         <div className="Header__bpmGroup">
           <label htmlFor="bpm-input" className="Header__bpmLabel">

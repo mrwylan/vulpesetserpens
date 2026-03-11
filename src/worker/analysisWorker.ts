@@ -3,7 +3,7 @@
  * Zero DOM access. Pure computation only.
  *
  * Message protocol:
- * - Receives: { channels: Float32Array[], sampleRate: number, bpm?: number }
+ * - Receives: { channels: Float32Array[], sampleRate: number, bpm?: number, minDuration?: number, maxDuration?: number }
  * - Sends: { type: 'progress', phase: string } | { type: 'complete', candidates: [...], upCrossings: [...] } | { type: 'error', error: string }
  */
 
@@ -11,18 +11,18 @@ import { detectLoops } from '../audio/detectLoops'
 import type { WorkerInput, WorkerMessage } from '../types'
 
 self.onmessage = (event: MessageEvent<WorkerInput>) => {
-  const { channels, sampleRate, bpm } = event.data
+  const { channels, sampleRate, bpm, minDuration, maxDuration } = event.data
 
   try {
-    const result = detectLoops(
-      channels,
-      sampleRate,
+    const result = detectLoops(channels, sampleRate, {
       bpm,
-      (phase: string) => {
+      minDuration,
+      maxDuration,
+      onProgress: (phase: string) => {
         const msg: WorkerMessage = { type: 'progress', phase, message: `${phase}…` }
         self.postMessage(msg)
-      }
-    )
+      },
+    })
 
     const completeMsg: WorkerMessage = {
       type: 'complete',

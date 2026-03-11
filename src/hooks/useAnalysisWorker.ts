@@ -15,6 +15,12 @@ export interface AnalysisCallbacks {
   onError: (message: string) => void
 }
 
+export interface AnalysisOptions {
+  bpm?: number
+  minDuration?: number
+  maxDuration?: number
+}
+
 export function useAnalysisWorker() {
   const workerRef = useRef<Worker | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -31,7 +37,7 @@ export function useAnalysisWorker() {
   }, [])
 
   const analyze = useCallback(
-    (buffer: AudioBuffer, callbacks: AnalysisCallbacks, bpm?: number) => {
+    (buffer: AudioBuffer, callbacks: AnalysisCallbacks, options: AnalysisOptions = {}) => {
       cancel()
 
       // Extract channel data from AudioBuffer
@@ -47,6 +53,8 @@ export function useAnalysisWorker() {
       }
 
       const sampleRate = buffer.sampleRate
+
+      const { bpm, minDuration, maxDuration } = options
 
       if (typeof Worker !== 'undefined') {
         // Use Web Worker for non-blocking analysis
@@ -95,15 +103,15 @@ export function useAnalysisWorker() {
             callbacks.onError(`Loop detection failed unexpectedly: ${event.message}`)
           }
 
-          worker.postMessage({ channels, sampleRate, bpm }, transferList)
+          worker.postMessage({ channels, sampleRate, bpm, minDuration, maxDuration }, transferList)
         } catch (_err) {
           // Worker creation failed — fall back to synchronous execution
-          runSynchronous(channels, sampleRate, bpm, callbacks)
+          runSynchronous(channels, sampleRate, { bpm, minDuration, maxDuration }, callbacks)
         }
       } else {
         // Web Worker not supported — fallback
         callbacks.onProgress('sync-fallback')
-        runSynchronous(channels, sampleRate, bpm, callbacks)
+        runSynchronous(channels, sampleRate, { bpm, minDuration, maxDuration }, callbacks)
       }
     },
     [cancel]
@@ -115,11 +123,11 @@ export function useAnalysisWorker() {
 function runSynchronous(
   channels: Float32Array[],
   sampleRate: number,
-  bpm: number | undefined,
+  options: AnalysisOptions,
   callbacks: AnalysisCallbacks
 ) {
   try {
-    const result = detectLoops(channels, sampleRate, bpm, callbacks.onProgress)
+    const result = detectLoops(channels, sampleRate, { ...options, onProgress: callbacks.onProgress })
     callbacks.onComplete(result.candidates, result.upCrossings, result.reasonCode)
   } catch (err) {
     callbacks.onError(err instanceof Error ? err.message : String(err))

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import type { AppState, LoopCandidate, WaveformPeaks } from './types'
+import type { AppState, LoopCandidate, WaveformPeaks, CreatorProfile } from './types'
 import { DropZone } from './components/DropZone/DropZone'
 import { Header } from './components/Header/Header'
 import { WaveformCanvas } from './components/Waveform/WaveformCanvas'
@@ -10,7 +10,7 @@ import { useAnalysisWorker } from './hooks/useAnalysisWorker'
 import { useAudioPlayer } from './hooks/useAudioPlayer'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { encodeWav, applyCrossfade, generateExportFilename, downloadWav } from './audio/encodeWav'
-import { computeBarAnnotation } from './audio/detectLoops'
+import { computeBarAnnotation, PROFILE_CONFIGS } from './audio/detectLoops'
 import { nudgeZeroCrossing } from './audio/zeroCrossings'
 import './styles/theme.css'
 import './styles/global.css'
@@ -58,6 +58,10 @@ export default function App() {
   const [selectedRank, setSelectedRank] = useState<number | null>(null)
   const [bpm, setBpm] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [profile, setProfile] = useState<CreatorProfile>('musician')
+
+  // Ref to keep the latest AudioBuffer for re-analysis on profile change
+  const audioBufferRef = useRef<AudioBuffer | null>(null)
 
   const audioContextRef = useRef<AudioContext | null>(null)
   const { analyze, cancel: cancelWorker } = useAnalysisWorker()
@@ -92,6 +96,7 @@ export default function App() {
 
         const arrayBuffer = await file.arrayBuffer()
         const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+        audioBufferRef.current = audioBuffer
 
         const audioFile = {
           name: file.name,
@@ -112,7 +117,8 @@ export default function App() {
         })
         setSelectedRank(null)
 
-        // Start analysis
+        // Start analysis with profile-specific duration constraints
+        const profileConfig = PROFILE_CONFIGS[profile]
         analyze(
           audioBuffer,
           {
@@ -184,7 +190,11 @@ export default function App() {
               })
             },
           },
-          bpm ?? undefined
+          {
+            bpm: bpm ?? undefined,
+            minDuration: profileConfig.minDuration,
+            maxDuration: profileConfig.maxDuration,
+          }
         )
       } catch (err) {
         setUploadError('Audio decoding failed. The file may be corrupted or use an unsupported codec.')
@@ -192,16 +202,115 @@ export default function App() {
         setAppState({ kind: 'empty' })
       }
     },
-    [stop, cancelWorker, getAudioContext, analyze, bpm]
+    [stop, cancelWorker, getAudioContext, analyze, bpm, profile]
   )
 
   const handleClose = useCallback(() => {
     stop()
     cancelWorker()
+    audioBufferRef.current = null
     setAppState({ kind: 'empty' })
     setSelectedRank(null)
     setUploadError(null)
   }, [stop, cancelWorker])
+
+  /** Re-run analysis with a new profile. If no buffer is loaded, just update state. */
+  const handleProfileChange = useCallback(
+    (newProfile: CreatorProfile) => {
+      setProfile(newProfile)
+      const buffer = audioBufferRef.current
+      if (!buffer) return
+
+      stop()
+      cancelWorker()
+      setSelectedRank(null)
+
+      const profileConfig = PROFILE_CONFIGS[newProfile]
+
+      setAppState(prev => {
+        if (prev.kind !== 'results' && prev.kind !== 'analyzing') return prev
+        return {
+          kind: 'analyzing',
+          audioFile: prev.audioFile,
+          buffer,
+          progressMessage: 're-analysing…',
+          waveformPeaks: prev.waveformPeaks ?? null,
+        }
+      })
+
+      analyze(
+        buffer,
+        {
+          onProgress: (phase) => {
+            const messages: Record<string, string> = {
+              'mono mix': 'mixing to mono…',
+              'zero-crossings': 'finding zero-crossings…',
+              autocorrelation: 'estimating musical period…',
+              scoring: 'scoring candidates…',
+              complete: 'finalizing results…',
+            }
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return { ...prev, progressMessage: messages[phase] ?? `${phase}…` }
+            })
+          },
+          onComplete: (candidates, upCrossings, reasonCode) => {
+            let analysisWarning: string | undefined
+            if (reasonCode === 'TOO_SHORT') {
+              analysisWarning = 'Audio is too short for loop detection (minimum 20 ms).'
+            } else if (reasonCode === 'NO_CROSSINGS') {
+              analysisWarning = 'No zero-crossings found. The audio may be DC-offset or silent.'
+            } else if (reasonCode === 'LOW_CONFIDENCE') {
+              analysisWarning = 'No high-quality loop points found. Results shown are best available but may produce audible clicks.'
+            }
+
+            let annotatedCandidates = candidates
+            if (bpm !== null) {
+              annotatedCandidates = candidates.map(c => ({
+                ...c,
+                barAnnotation: computeBarAnnotation(c.duration, bpm),
+                approximateBars: c.duration / ((60 / bpm) * 4),
+              }))
+            }
+
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return {
+                kind: 'results',
+                audioFile: prev.audioFile,
+                buffer: prev.buffer,
+                waveformPeaks: prev.waveformPeaks!,
+                candidates: annotatedCandidates,
+                upCrossings,
+                analysisWarning,
+              }
+            })
+            if (annotatedCandidates.length > 0) setSelectedRank(1)
+          },
+          onError: (message) => {
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return {
+                kind: 'results',
+                audioFile: prev.audioFile,
+                buffer: prev.buffer,
+                waveformPeaks: prev.waveformPeaks!,
+                candidates: [],
+                upCrossings: [],
+                analysisWarning: `Loop detection failed: ${message}`,
+              }
+            })
+          },
+        },
+        {
+          bpm: bpm ?? undefined,
+          minDuration: profileConfig.minDuration,
+          maxDuration: profileConfig.maxDuration,
+        }
+      )
+    },
+    [stop, cancelWorker, analyze, bpm]
+  )
 
   const handleBpmChange = useCallback(
     (newBpm: number | null) => {
@@ -427,6 +536,8 @@ export default function App() {
     return (
       <DropZone
         onFileSelected={handleFileSelected}
+        profile={profile}
+        onProfileChange={handleProfileChange}
         isLoading={appState.kind === 'loading'}
         errorMessage={uploadError}
         infoMessage={appState.kind === 'loading' ? `Loading: ${appState.fileName}` : null}
@@ -444,7 +555,9 @@ export default function App() {
       <Header
         audioFile={audioFile}
         bpm={bpm}
+        profile={profile}
         onBpmChange={handleBpmChange}
+        onProfileChange={handleProfileChange}
         onClose={handleClose}
       />
 

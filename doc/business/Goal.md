@@ -27,6 +27,16 @@ Each candidate can be played back in a seamless loop directly in the browser. Th
 ### G5 — Export
 The user can export a selected loop as a trimmed WAV file. The exported file contains only the loop region, ready to drop into any DAW or sampler.
 
+### G6 — BPM input
+The creator can supply a tempo value (beats per minute) via a simple number field. When a BPM is present:
+- The loop detection scoring weights musical period affinity more precisely — candidates whose duration aligns with one bar, two bars, or four bars at the given tempo are ranked higher
+- Each candidate displays a bar/beat annotation (e.g. "2 bars @ 120 BPM") alongside its duration in seconds
+- Exported filenames include the bar count (e.g. `loop-2bars-120bpm.wav`) so the file is self-describing when it lands in a project folder
+
+BPM input is a must-have for producers and beatmakers. It is not relevant to sound designers working with micro-duration sustain loops, and optional for musicians. The field must not be intrusive when unused.
+
+> Automatic BPM detection — where the algorithm infers tempo from the audio itself — is a must-have for iteration 2. The input field in v1 is the baseline; detection replaces manual entry and makes the feature accessible without domain knowledge.
+
 ---
 
 ## Experience Goals
@@ -47,11 +57,9 @@ The entire application runs in a modern browser. No backend, no plugins, no Elec
 
 ## Out of Scope (v1)
 
-- Automatic BPM detection
+- Automatic BPM detection (must-have for iteration 2; v1 ships user-supplied input only)
 - Beat-grid alignment or time-stretching
 - Multi-track or stem analysis
 - Cloud storage or project saving
 - Mobile-optimized layout (desktop-first for v1)
 - Collaboration or sharing features
-
-> **Creator note:** Automatic BPM detection is out of scope, but user-supplied BPM input (a simple number field) is low-cost and high-value. A producer or musician typing "120" into a tempo field unlocks musically-aware loop duration scoring and bar-count annotations on candidates and filenames. This is not BPM detection — it is BPM input — and the distinction matters. Consider moving "user-supplied BPM hint" into scope for v1 as a lightweight input, even if automated detection remains out of scope. See UC-006.

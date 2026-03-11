@@ -39,11 +39,13 @@ Iteration 2 ships nudge buttons. Iteration 3 completes the interaction with full
 
 ### M3-G4 — BPM field placement and bar/beat integration
 
-Resolve OQ-7 with a fully designed implementation. The tempo input sits inline in the waveform metadata bar (alongside sample rate, duration, and channel count) as an unobtrusive label + number field. When a BPM value is present:
+Iteration 2 delivers automatic BPM detection and a functional BPM input field. Iteration 3 elevates tempo awareness into a fully integrated spatial experience — the beat grid becomes visible on the canvas and the producer can feel the rhythm of the sample while choosing loop boundaries.
+
+The tempo field sits inline in the waveform metadata bar (alongside sample rate, duration, and channel count), showing the auto-detected value or the creator's override. When a BPM value is present:
 
 - Candidate durations display as bar/beat annotations (e.g. "2 bars @ 120 BPM") rather than raw seconds
 - The waveform shows a faint beat grid overlay at the current tempo, giving the producer a rhythmic reference frame while selecting loop boundaries
-- The beat grid snapping option is available during manual loop point adjustment
+- Beat grid snapping is available during manual loop point adjustment — dragging a boundary marker can snap to the nearest beat rather than only to the nearest zero-crossing
 
 ### M3-G5 — Drop zone and loading experience
 

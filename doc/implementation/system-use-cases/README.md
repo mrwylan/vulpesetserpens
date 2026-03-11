@@ -13,6 +13,8 @@ This folder contains implementation-level use case documents. Each file describe
 | UC-005 | Export Loop | Accepted |
 | UC-006 | Set Tempo Reference | Accepted |
 | UC-007 | Adjust Loop Points Manually | Accepted |
+| UC-008 | Select Creator Profile | Accepted |
+| UC-009 | Batch Export Loop Candidates | Draft |
 
 ## Purpose
 

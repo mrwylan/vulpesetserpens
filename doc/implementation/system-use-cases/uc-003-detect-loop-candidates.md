@@ -50,7 +50,15 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
    d. **Waveform shape continuity score** `S_shape` (0.0–1.0): Extract a 20 ms window of samples immediately after `startIdx` (the "start tail") and a 20 ms window immediately before `endIdx` (the "end tail"). Compute the normalized cross-correlation of the two windows. The peak cross-correlation value (clamped to [0, 1]) is `S_shape`.
    e. **Musical period score** `S_period` (0.0–1.0): If `preferredLengths` is non-empty, `S_period = max( R[endIdx - startIdx] )` over all preferred lags within tolerance of the actual loop length. If the loop length does not land near any preferred lag, `S_period = 0.0`. If no preferred lengths exist, `S_period = 0.5` for all candidates (neutral).
    f. **Energy continuity score** `S_energy` (0.0–1.0): Compute the RMS of a 50 ms window immediately before `endIdx` and a 50 ms window immediately after `startIdx`. Score: `S_energy = 1.0 - clamp(|RMS_end_tail - RMS_start_tail| / maxExpectedRMSDelta, 0, 1)`, where `maxExpectedRMSDelta = 0.1`. This rewards candidates where the perceived loudness at the stitch point is continuous — an abrupt jump in level is audible even when the waveform is technically click-free.
-   g. **Composite score**: `score = 0.35 * S_shape + 0.30 * S_slope + 0.20 * S_period + 0.15 * S_energy`. Higher is better.
+   g. **Beat-alignment score** `S_beat` (0.0 or 1.0): Applies only when a BPM value is available (`bpm > 0`) **and** the active creator profile is `producer` or `musician`. Compute the beat grid: `beatPositions[n] = n × (60 / bpm)` seconds, for n = 0, 1, 2, …. For each candidate, compute the nearest beat position to `startTime` and the nearest beat position to `endTime`. If both are within the profile's snap window, `S_beat = 1.0`; otherwise `S_beat = 0.0`. Snap windows: ≤ 5 ms for `producer`, ≤ 20 ms for `musician`. For the `sound-designer` profile, always set `S_beat = 0.0` and exclude it from the composite (beat alignment is meaningless for micro sustain loops).
+   h. **Composite score**: The weights depend on whether beat alignment is active:
+
+      | Condition | Formula |
+      |-----------|---------|
+      | `sound-designer` profile, or BPM unavailable | `score = 0.35 × S_shape + 0.30 × S_slope + 0.20 × S_period + 0.15 × S_energy` |
+      | `producer` or `musician` profile with BPM available | `score = 0.30 × S_shape + 0.25 × S_slope + 0.15 × S_period + 0.10 × S_energy + 0.20 × S_beat` |
+
+      Higher is better. The beat-alignment bonus (20% weight) is significant enough to promote beat-aligned candidates above otherwise equivalent non-aligned candidates, but does not override strong waveform-quality signals.
 
 > **Creator note:** The original scoring had no energy continuity term. A loop can pass zero-crossing and slope-match tests perfectly but still sound wrong if the volume level jumps suddenly at the stitch — for example, a loop that ends on a decaying tail and wraps back to a loud attack. The energy score penalizes these cases. The weights have been adjusted: shape and slope remain primary, but musical period and energy continuity share the remaining 35%. These weights are named constants and should be tuned empirically during testing with real sample material.
 
@@ -78,6 +86,7 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
     - `shapeScore` (float): `S_shape`
     - `periodScore` (float): `S_period`
     - `energyScore` (float): `S_energy`
+    - `beatScore` (float): `S_beat` (0.0 or 1.0; 0.0 when beat alignment is not applicable)
     - `crossfadeDuration` (float): recommended crossfade in seconds (0 or 0.01)
     - `rank` (integer): 1-based rank position
 
@@ -129,14 +138,18 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 1a. For a synthetic repeating micro-loop (e.g., a sine wave at 50 Hz with a period of 20 ms), at least one returned candidate has a duration within ±5 ms of the true period. This tests that the sound designer use case is served — micro-duration sustain loops must be detectable.
 2. For audio that has a clean, obvious loop region, the top candidate's `score` is >= 0.7.
 3. All returned candidates have their `startSample` and `endSample` coinciding with upward zero-crossings in the mono signal (verifiable by checking `samples[startSample - 1] < 0 && samples[startSample] >= 0`).
-4. No two candidates in the returned list have both `startTime` and `endTime` within 50 ms of each other.
+4. No two candidates in the returned list have both `startTime` and `endTime` within 10 ms of each other.
 5. The candidate list contains at most 10 entries.
 6. Detection completes and posts results to the main thread within 10 seconds for audio files up to 5 minutes in length.
 7. For a completely silent audio file (all zeros), the system returns an empty list or a list marked `lowConfidence: true`, and the UI shows an appropriate message without throwing.
 8. For audio shorter than 0.02 seconds (20 ms), an empty list is returned with reason code `"TOO_SHORT"` and the UI displays a user-friendly explanation.
 9. The waveform overlay is updated with loop candidate regions immediately after the "candidates-ready" event fires.
-10. Each candidate object contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`).
+10. Each candidate object contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `energyScore`, `beatScore`, `crossfadeDuration`, `rank`).
 11. Running detection a second time on the same file (e.g., after replacing and re-uploading the same file) produces the same ranked list (algorithm is deterministic).
+12. When a BPM is available and the active profile is `producer`, candidates whose start and end both fall within 5 ms of a beat position receive `beatScore = 1.0`; all others receive `beatScore = 0.0`.
+13. When a BPM is available and the active profile is `musician`, candidates whose start and end both fall within 20 ms of a beat position receive `beatScore = 1.0`; all others receive `beatScore = 0.0`.
+14. When the active profile is `sound-designer`, `beatScore` is always `0.0` regardless of whether a BPM is available.
+15. When BPM is unavailable (field empty), `beatScore` is `0.0` for all profiles and the composite score formula without the beat term is used.
 
 ## Test Coverage
 
@@ -145,10 +158,14 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 - AC-3: zero-crossing detector treats an exact `0.0` sample as non-negative (upward crossing when previous sample < 0)
 - AC-1: on a synthetic sine with a known period (e.g., 44100 samples at 1 Hz), the top candidate duration is within ±50 ms of the true period
 - AC-2: composite score for a clean periodic signal is >= 0.7
-- AC-4: deduplication function removes candidates whose start and end are both within 50 ms of a higher-ranked entry
+- AC-4: deduplication function removes candidates whose start and end are both within 10 ms of a higher-ranked entry
 - AC-5: ranking function returns at most 10 candidates
-- AC-10: each candidate object produced by the algorithm contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`)
+- AC-10: each candidate object produced by the algorithm contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `energyScore`, `beatScore`, `crossfadeDuration`, `rank`)
 - AC-11: running the algorithm twice on the same Float32Array input produces identical ranked lists
+- AC-12: with a known BPM and `producer` profile, a synthetic candidate pair landing exactly on beat boundaries receives `beatScore = 1.0`; a pair offset by 10 ms receives `beatScore = 0.0`
+- AC-13: with the same BPM and `musician` profile, a pair offset by 10 ms still receives `beatScore = 1.0` (within 20 ms snap window)
+- AC-14: with `sound-designer` profile, `beatScore` is always `0.0` regardless of BPM
+- AC-15: the two composite score formulas (beat-active vs beat-inactive) sum to 1.0 (0.30 + 0.25 + 0.15 + 0.10 + 0.20 = 1.0 and 0.35 + 0.30 + 0.20 + 0.15 = 1.0)
 - AC-7: algorithm returns an empty list (or `lowConfidence: true` entries) for an all-zero Float32Array
 - AC-8: algorithm returns an empty list with reason code `"TOO_SHORT"` for a Float32Array shorter than 0.02 s (20 ms) at the given sample rate
 - AC-1a: on a synthetic 50 Hz sine wave (period = 20 ms), at least one candidate has duration within ±5 ms of 20 ms
@@ -159,6 +176,7 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 - AC-6: detection completes and candidate cards appear within 10 seconds of upload for a 5-minute fixture
 - AC-7: uploading `noise-1s.wav` fixture results in an empty list or a low-confidence warning displayed in the UI
 - AC-9: candidate overlay regions appear on the waveform canvas immediately after the "candidates-ready" event (verified by observing DOM changes)
+- AC-12/13: with Producer profile selected and a BPM value entered, the top-ranked candidate's start and end times each fall within 5 ms of a computed beat position (verified by reading `data-start-time` and `data-end-time` attributes on the candidate card and comparing to beat grid)
 
 ## Notes / Constraints
 
@@ -169,7 +187,8 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 - The composite score weights (0.4 shape, 0.35 slope, 0.25 period) are initial values and may require tuning during testing. Define them as named constants at the top of the worker script.
 - Candidate objects are plain serializable JavaScript objects (no class instances, no functions, no circular references) so they can be passed through the structured-clone algorithm used by `postMessage`.
 - The crossfade duration stored on each candidate (Phase 5) is a recommendation for UC-004's playback engine. UC-004 must apply this crossfade when scheduling looped playback.
-- Automatic BPM detection (inferring tempo from the audio signal) is out of scope for v1 and is planned for iteration 2. However, the system must accept a user-supplied BPM value via UC-006. When the worker receives a `bpm` parameter, it computes expected bar lengths at that tempo and biases `S_period` scoring toward candidates whose duration aligns with those lengths. This is not detection — the user supplies the value; the algorithm uses it.
+- The worker accepts a `bpm` parameter from either a user-supplied value (UC-006) or automatic BPM detection (UC-006 iteration 2). When `bpm` is available, the worker computes beat-aligned scoring as described in Phase 4g. The `creatorProfile` parameter must also be passed to the worker so it can apply the correct snap window and composite formula.
+- Automatic BPM detection (inferring tempo from the audio signal without user input) is specified as M2-G6 in iteration 2. When detection is implemented, the worker will post a `detectedBpm` and `bpmConfidence` value alongside the candidate list. UC-006 governs how the detected value is presented and overridden by the user.
 
 > **Creator note:** Almost every producer knows the BPM of their sample — it's usually embedded in the filename ("loop_120bpm.wav") or stamped on the sample pack. A simple BPM input field transforms the period scoring from a guess into a certainty, and is the single highest-leverage improvement to musical quality of results. It does not require automatic BPM detection; user-supplied is sufficient.
 - For Phase 4a, the pair-search strategy must avoid O(M²) complexity. On a 5-minute file at 44100 Hz there are approximately 13 million samples and potentially tens of thousands of zero-crossings; an exhaustive pairing would take minutes. The preferred-length + tolerance window approach reduces this to O(M × P) where P is the number of preferred period lengths (typically < 10).

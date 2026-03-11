@@ -1,10 +1,14 @@
 # UC-006 — Set Tempo Reference
 
-> **Creator note:** This use case was elevated to a must-have for v1 following a creator-perspective review. Producers almost always know the BPM of their sample — it is stamped in the filename, the sample pack metadata, or their own session notes. Accepting a user-supplied BPM value costs almost nothing to implement but unlocks musically-aware result annotations (bar counts), improved period scoring in UC-003, and more readable filenames in UC-005. It requires no automatic BPM detection — the creator types the value; the system uses it. BPM input is specifically relevant to the producer and musician profiles; it is not expected to be used by sound designers working with micro-duration sustain loops.
+> **Creator note:** This use case was elevated to a must-have for v1 following a creator-perspective review. Producers almost always know the BPM of their sample — it is stamped in the filename, the sample pack metadata, or their own session notes. Accepting a user-supplied BPM value costs almost nothing to implement but unlocks musically-aware result annotations (bar counts), improved period scoring in UC-003, beat-aligned candidate ranking (M2-G7), and more readable filenames in UC-005. BPM input is specifically relevant to the producer and musician profiles; it is not expected to be used by sound designers working with micro-duration sustain loops.
+>
+> Iteration 2 adds automatic BPM detection (M2-G6): the analysis worker infers tempo from the audio signal and pre-populates the BPM field without user input. The manually-entered value always takes precedence over the detected value.
 
 ## Trigger
 
-The user types a numeric BPM value into the "Tempo" input field visible in the application UI, and either presses Enter or tabs away from the field (on blur).
+**Primary:** The user types a numeric BPM value into the "Tempo" input field and either presses Enter or tabs away from the field (on blur).
+
+**Secondary (Iteration 2 — M2-G6):** The analysis worker posts a `detectedBpm` and `bpmConfidence` value alongside loop candidates after file analysis completes. The system automatically populates the BPM field with the detected value if the field is currently empty and confidence is sufficient (see step 0 in Main Flow).
 
 ## Preconditions
 
@@ -13,12 +17,19 @@ The user types a numeric BPM value into the "Tempo" input field visible in the a
 
 ## Main Flow
 
+**Step 0 (Iteration 2 — automatic detection, runs before user interaction):**
+When the analysis worker posts its result after file load, if it includes a `detectedBpm` value:
+- If `bpmSource === 'none'` (no BPM is currently set), populate the BPM field with `detectedBpm` and set `bpmSource = 'detected'`.
+- If `bpmConfidence === 'low'`, display the value as unconfirmed: e.g., "93 BPM (unconfirmed)". If `bpmConfidence === 'high'`, display as confirmed: "93 BPM detected".
+- If `bpmSource === 'user'` (user has already entered a value), do not overwrite it. The user-supplied value always takes precedence.
+- Proceed with steps 5–8 of the main flow as if the user had entered the detected BPM.
+
 1. The user focuses the tempo input field (a numeric text input, labelled "BPM" or "Tempo").
-2. The user types a numeric BPM value (e.g., "120", "93.5").
+2. The user types a numeric BPM value (e.g., "120", "93.5"). On input, set `bpmSource = 'user'`.
 3. On input commit (Enter key or blur event), the system validates the value:
    - Acceptable range: 20–300 BPM (inclusive). Values outside this range are rejected with an inline validation message.
    - Decimal values are accepted (e.g., "93.5" for swing grooves or non-standard tempos).
-4. If the value is valid, the system stores it in application state as `tempoReference` (a float in BPM).
+4. If the value is valid, the system stores it in application state as `tempoReference` (a float in BPM) and sets `bpmSource = 'user'`.
 5. If loop candidates are already present in the candidate list (i.e., UC-003 has already completed), the system recomputes the bar/beat annotations for all candidates using the new tempo without re-running loop detection. Specifically, for each candidate, compute:
    - `beatsPerBar = 4` (assumed 4/4; see Alternate Flows for other time signatures)
    - `secondsPerBeat = 60.0 / tempoReference`
@@ -34,7 +45,7 @@ The user types a numeric BPM value into the "Tempo" input field visible in the a
 
 ### AF-1: User clears the tempo field
 
-If the user deletes the value and leaves the field empty (or enters "0"), the system clears `tempoReference` from application state. Bar annotations are removed from the candidate list. The `S_period` scoring reverts to autocorrelation-only mode.
+If the user deletes the value and leaves the field empty (or enters "0"), the system clears `tempoReference` from application state and sets `bpmSource = 'none'`. Bar annotations are removed from the candidate list. The `S_period` scoring reverts to autocorrelation-only mode. Beat-alignment scoring is disabled (all `beatScore = 0.0`).
 
 ### AF-2: User changes the tempo after it was already set
 
@@ -73,6 +84,11 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 9. The tempo reference is visible in the waveform metadata display when set.
 10. When the tempo reference is set before analysis runs, the worker uses it to compute preferred bar lengths for `S_period` scoring. A 4-bar loop at the given BPM scores higher in `S_period` than an arbitrary-length loop.
 11. Decimal BPM values (e.g., "93.5") are accepted and stored correctly.
+12. (Iteration 2) When the worker posts `detectedBpm = 120` with `bpmConfidence = 'high'` and no BPM is currently set, the BPM field is populated with `120` and the label reads "120 BPM detected".
+13. (Iteration 2) When the worker posts `detectedBpm = 93` with `bpmConfidence = 'low'`, the BPM field shows "93 BPM (unconfirmed)".
+14. (Iteration 2) When a user has manually entered "110" before analysis, a subsequent `detectedBpm` from the worker does not overwrite the field — it remains "110".
+15. (Iteration 2) After auto-detection populates the field, the user can type a new value; the new value takes precedence and `bpmSource` becomes `'user'`.
+16. (Iteration 2) Detection confidence is visually distinguishable in the BPM input area: "confirmed" uses the standard text colour; "unconfirmed" uses the secondary text colour or an explicit "(unconfirmed)" suffix.
 
 ## Test Coverage
 
@@ -90,6 +106,8 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 - AC-2: with candidates present, bar annotations appear in the candidate list immediately after a valid BPM is entered — no page reload
 - AC-6: deleting the BPM field value and pressing Enter removes bar annotations from the candidate list
 - AC-9: the waveform metadata area displays the entered BPM value after a valid entry
+- AC-12 (Iteration 2): uploading a fixture with a known tempo causes the BPM field to be pre-populated after analysis completes, without user input
+- AC-14 (Iteration 2): manually entering a BPM before upload prevents the auto-detected value from overwriting the field
 
 ## Notes / Constraints
 
@@ -98,3 +116,5 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 - BPM entry must not trigger a re-run of the full loop detection algorithm. Bar annotation computation is a lightweight post-processing step that runs on the main thread against the existing candidate data.
 - The tempo reference is passed to the analysis worker only when detection is (re-)triggered — not retroactively. Bar annotations on existing candidates are computed on the main thread without re-invoking the worker.
 - The BPM input should use `type="number"` with `min="20"` and `max="300"` and `step="0.5"` attributes for browser-native validation hints, but the system must also perform its own JavaScript validation (the `type="number"` constraint alone is not sufficient, as it can be bypassed by pasting).
+- Application state should track `bpmSource: 'none' | 'detected' | 'user'` alongside `tempoReference`. This allows the UI to display whether the current BPM came from user input or auto-detection, and allows the auto-detection result to be discarded if the user subsequently clears the field.
+- The automatic BPM detection algorithm (iteration 2) runs in the analysis worker alongside loop detection. It must not add perceptible latency to the result display. The worker posts `detectedBpm` (float) and `bpmConfidence` (`'high' | 'low'`) as additional fields on the result message.

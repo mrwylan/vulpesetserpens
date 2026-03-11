@@ -4,7 +4,7 @@
 
 The user clicks a "Play" control associated with a specific loop candidate in the candidate list UI, or presses a keyboard shortcut to play/stop the currently selected candidate.
 
-> **Musician note:** Keyboard shortcuts are essential for rapid auditioning. A producer may cycle through 10 candidates quickly to find the right one. Having to move the mouse to a button for each play/stop cycle breaks the listening focus. At minimum, the Space bar should toggle play/stop for the currently selected candidate, and the Up/Down arrow keys should cycle selection through the candidate list.
+> **Creator note:** Keyboard shortcuts are essential for rapid auditioning. A producer may cycle through 10 candidates quickly to find the right one. Having to move the mouse to a button for each play/stop cycle breaks the listening focus. At minimum, the Space bar should toggle play/stop for the currently selected candidate, and the Up/Down arrow keys should cycle selection through the candidate list.
 
 ## Preconditions
 
@@ -35,7 +35,7 @@ The user clicks a "Play" control associated with a specific loop candidate in th
 10. Store a reference to the active `sourceNode` in application state so it can be stopped later.
 11. While looping is active, a playback position indicator (a moving vertical line on the waveform overlay) advances across the loop region to show the current read head position within the loop. This is drawn using `requestAnimationFrame` and reflects `audioContext.currentTime` relative to `sourceNode`'s scheduled start time.
 
-> **Musician note:** A moving playhead on the waveform is a small addition but extremely useful — it lets the musician see exactly where the loop is playing within the waveform, which helps confirm that the loop boundaries are landing where expected and gives a visual reference when deciding to manually adjust (see UC-007).
+> **Creator note:** A moving playhead on the waveform is a small addition but extremely useful — it lets the creator see exactly where the loop is playing within the waveform, which helps confirm that the loop boundaries are landing where expected and gives a visual reference when deciding to manually adjust (see UC-007).
 
 ## Alternate Flows
 
@@ -46,7 +46,7 @@ The user clicks a "Play" control associated with a specific loop candidate in th
 3. The system proceeds from Main Flow step 3 with the newly selected candidate.
 4. The UI updates: the previously playing candidate reverts to "Play" state; the new candidate shows "playing" state.
 
-> **Musician note:** Switching candidates should be near-instantaneous. The gap between the old loop stopping and the new loop starting must be imperceptible — target under 20 ms. If a musician is rapidly cycling through candidates by pressing arrow keys, any perceivable silence or click between switches will derail the listening evaluation. Gapless switch is more important than crossfade polish here.
+> **Creator note:** Switching candidates should be near-instantaneous. The gap between the old loop stopping and the new loop starting must be imperceptible — target under 20 ms. If a creator is rapidly cycling through candidates by pressing arrow keys, any perceivable silence or click between switches will derail the listening evaluation. Gapless switch is more important than crossfade polish here.
 
 ### AF-2: User clicks "Stop" (or clicks "Play" on the currently playing candidate)
 
@@ -125,9 +125,9 @@ If UC-003 results are refreshed (e.g., re-analysis triggered), the currently pla
 
 ## Notes / Constraints
 
-> **Musician note:** A volume (gain) control for the audition output should be provided — not as a primary feature, but as a practical necessity. Musicians often audition samples while a DAW or other audio is playing in the background, and being able to quickly trim the loop volume prevents clipping or ear fatigue. A simple slider or knob that adjusts the `GainNode` gain (range 0.0–1.0, defaulting to 1.0) is sufficient. This does not affect the exported file — it is audition-only.
+> **Creator note:** A volume (gain) control for the audition output should be provided — not as a primary feature, but as a practical necessity. Creators often audition samples while a DAW or other audio is playing in the background, and being able to quickly trim the loop volume prevents clipping or ear fatigue. A simple slider or knob that adjusts the `GainNode` gain (range 0.0–1.0, defaulting to 1.0) is sufficient. This does not affect the exported file — it is audition-only.
 
-> **Musician note:** Loop iteration count should be visible. Showing "Loop 1", "Loop 2", etc. as the loop wraps around is a lightweight but useful indicator that lets the musician confirm the loop is actually looping (not just playing a long single pass) and that the stitch point sounds right every time around. Increment a counter each time the read head passes the loop start, derived from elapsed time.
+> **Creator note:** Loop iteration count should be visible. Showing "Loop 1", "Loop 2", etc. as the loop wraps around is a lightweight but useful indicator that lets the creator confirm the loop is actually looping (not just playing a long single pass) and that the stitch point sounds right every time around. Increment a counter each time the read head passes the loop start, derived from elapsed time.
 
 - Use the `AudioBufferSourceNode` built-in loop mechanism (`sourceNode.loop = true`, `sourceNode.loopStart`, `sourceNode.loopEnd`) rather than manually scheduling repeated plays. This is the most accurate and drift-free looping mechanism available in the Web Audio API.
 - `AudioBufferSourceNode` instances are single-use: once `.stop()` is called or the node ends, it cannot be restarted. Always create a new node for each playback start.

@@ -17,7 +17,7 @@ The user either:
 1. The system registers a dragover event on the drop zone; it calls `event.preventDefault()` and applies a visual "drag-active" highlight state to the drop zone to signal readiness.
 2. The user drops the file. The system reads `event.dataTransfer.files` and takes the first file in the list. If more than one file is dropped, the additional files are ignored and a non-blocking informational message is displayed: "Only one file can be loaded at a time. Loading: `<filename>`."
 
-> **Musician note:** Silently ignoring extra dropped files is frustrating — a producer drags a folder or multi-selects by accident and has no idea what happened. A brief, friendly message confirming which file was picked avoids confusion without blocking the flow.
+> **Creator note:** Silently ignoring extra dropped files is frustrating — a producer drags a folder or multi-selects by accident and has no idea what happened. A brief, friendly message confirming which file was picked avoids confusion without blocking the flow.
 3. The system validates the file (see Failure / Error Cases for rejection conditions).
 4. The system displays a loading/processing indicator and disables the drop zone to prevent concurrent uploads.
 5. The system reads the file as an `ArrayBuffer` using `FileReader.readAsArrayBuffer()`.
@@ -49,7 +49,7 @@ The system rejects the new drop with an informational message ("Please wait — 
 - Detection: the file's MIME type is not one of `audio/wav`, `audio/x-wav`, `audio/aiff`, `audio/x-aiff`, `audio/mpeg` (MP3), `audio/ogg`, `audio/flac`, `audio/x-flac`. Additionally, if `decodeAudioData` rejects its promise even though the MIME type was nominally acceptable, this is also treated as an unsupported format.
 - Response: display a clearly worded error message identifying the file name and stating the accepted formats (WAV, AIFF, MP3, OGG, FLAC). The drop zone returns to the idle/ready state. No state is modified.
 
-> **Musician note:** AIFF (Audio Interchange File Format) is a first-class citizen on macOS and is the default export format from Logic Pro, GarageBand, and many hardware recorders. Omitting AIFF from the accepted list would exclude a significant portion of Mac-based producers. AIFF and WAV are functionally equivalent for this tool's purposes — both are uncompressed PCM containers — and `decodeAudioData` handles AIFF natively in all major browsers.
+> **Creator note:** AIFF (Audio Interchange File Format) is a first-class citizen on macOS and is the default export format from Logic Pro, GarageBand, and many hardware recorders. Omitting AIFF from the accepted list would exclude a significant portion of Mac-based producers. AIFF and WAV are functionally equivalent for this tool's purposes — both are uncompressed PCM containers — and `decodeAudioData` handles AIFF natively in all major browsers.
 
 ### FC-2: File too large
 

@@ -1,6 +1,6 @@
 # UC-007 — Adjust Loop Points Manually
 
-> **Musician note:** This use case was identified as missing during a musician-perspective review. Automatic loop detection is a starting point, not an ending point. Every experienced producer who works with samples will at some point want to nudge a loop boundary by a few milliseconds — to catch the beginning of a transient, avoid a room noise artifact, or align with a musical phrase boundary that the algorithm missed. Without manual adjustment, the tool forces the musician to accept the algorithm's best guess or abandon the tool entirely for a DAW. A simple drag-to-adjust interface on the waveform turns the tool from a one-shot generator into an iterative creative instrument.
+> **Creator note:** This use case was identified as missing during a creator-perspective review. Automatic loop detection is a starting point, not an ending point. Every creator — whether a sound designer fine-tuning a sustain loop by a single zero-crossing, a musician catching the exact onset of a note, or a producer aligning to a phrase boundary the algorithm missed — will at some point need to nudge a loop boundary. Without manual adjustment, the tool forces the creator to accept the algorithm's best guess or abandon the tool for a DAW or sampler editor. A simple drag-to-adjust interface on the waveform turns the tool from a one-shot generator into an iterative creative instrument.
 
 ## Trigger
 
@@ -20,7 +20,7 @@ The user drags a loop boundary marker (start or end) on the waveform visualizati
 2. The user clicks and begins dragging the marker horizontally. The marker follows the pointer in real time.
 3. As the marker moves, the system continuously snaps it to the nearest upward zero-crossing within ±5 ms of the current pointer position (the same zero-crossings computed during UC-003 Phase 2). Snapping is a default-on behavior that can be temporarily overridden by holding Alt/Option.
 4. The waveform overlay re-renders in real time as the marker moves, updating the highlighted loop region and the boundary marker position.
-5. If a loop is currently playing (UC-004 active), the system updates `sourceNode.loopStart` or `sourceNode.loopEnd` in real time as the marker moves. The playing loop adjusts without stopping and restarting — the musician hears the effect of the adjustment immediately.
+5. If a loop is currently playing (UC-004 active), the system updates `sourceNode.loopStart` or `sourceNode.loopEnd` in real time as the marker moves. The playing loop adjusts without stopping and restarting — the creator hears the effect of the adjustment immediately.
 6. On mouse/pointer release, the system commits the new position:
    - If snapping is active, the committed position is the nearest upward zero-crossing to the final pointer position.
    - If snapping is overridden, the committed position is the exact sample under the pointer position, converted from pixel coordinates to sample index: `newSample = Math.round(pointerXRatio * audioBuffer.length)`, where `pointerXRatio = pointerX / canvas.clientWidth`.
@@ -38,11 +38,11 @@ The user drags a loop boundary marker (start or end) on the waveform visualizati
 
 ### AF-1: Dragging start past end (or end past start)
 
-If the user drags the start marker to a position that would place `startSample >= endSample - minSamples` (where `minSamples` corresponds to 0.5 s), the marker stops moving at that minimum-distance boundary. The loop duration floor prevents an invalid or degenerate loop region.
+If the user drags the start marker to a position that would place `startSample >= endSample - minSamples` (where `minSamples` corresponds to `minDuration = 0.02 s`, i.e., 20 ms), the marker stops moving at that minimum-distance boundary. The loop duration floor prevents an invalid or degenerate loop region.
 
 ### AF-2: No audio is playing during adjustment
 
-Steps 5 of the Main Flow (real-time loopStart/loopEnd update) is skipped. The adjustment still commits and the waveform overlay updates. The musician can then press Play to hear the adjusted loop from the new boundaries.
+Steps 5 of the Main Flow (real-time loopStart/loopEnd update) is skipped. The adjustment still commits and the waveform overlay updates. The creator can then press Play to hear the adjusted loop from the new boundaries.
 
 ### AF-3: Snapping overridden (Alt/Option held)
 
@@ -110,7 +110,7 @@ Manual adjustment only affects the currently selected candidate. Other candidate
 - The zero-crossing list (`upCrossings`) computed during UC-003 must be retained in application state and made accessible to this use case. It must not be discarded after analysis completes. This is a state management constraint that must be reflected in the store/reducer design.
 - Pixel-to-sample conversion: `sampleIndex = Math.round((pointerX / canvas.clientWidth) * audioBuffer.length)`. Account for `devicePixelRatio` if pointer events return CSS pixel coordinates — convert to the same coordinate space used for rendering.
 - Real-time `loopStart`/`loopEnd` updates during playback: setting `sourceNode.loopStart` and `sourceNode.loopEnd` on a playing `AudioBufferSourceNode` takes effect immediately in the Web Audio API without needing to stop and restart the node. This is the correct approach for real-time adjustment during playback.
-- The drag interaction must use the Pointer Events API (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) rather than mouse events. Use `canvas.setPointerCapture(event.pointerId)` on `pointerdown` to ensure `pointermove` events continue to fire even if the pointer exits the canvas during a drag — this allows the musician to drag quickly without losing control.
+- The drag interaction must use the Pointer Events API (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) rather than mouse events. Use `canvas.setPointerCapture(event.pointerId)` on `pointerdown` to ensure `pointermove` events continue to fire even if the pointer exits the canvas during a drag — this allows the creator to drag quickly without losing control.
 - Touch support is out of scope for v1 (desktop-first), but the Pointer Events API is compatible with touch devices and will enable touch support in a future iteration without additional refactoring.
 - The drag hit area for a boundary marker should be larger than its visual size. A 24px-wide invisible hit zone centered on the marker line makes it much easier to grab, especially on high-DPI displays where the marker line may be only 1 CSS pixel wide.
 - Manual adjustment does not trigger re-running the loop detection algorithm. It only updates the selected candidate's boundary values in existing application state.

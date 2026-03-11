@@ -7,7 +7,7 @@ An "audio-loaded" event (or equivalent state change) fires after UC-001 complete
 ## Preconditions
 
 - A valid `AudioBuffer` is present in application state.
-- The `AudioBuffer` has a duration greater than 0.1 seconds and a sample rate greater than 0.
+- The `AudioBuffer` has a duration greater than `minDuration` (0.02 seconds / 20 ms) and a sample rate greater than 0.
 
 ## Main Flow
 
@@ -18,9 +18,9 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
 1. The system posts a "detection-started" event to the main thread, which the UI reflects as a progress/analysis indicator.
 2. The worker receives the audio data as a mono signal. If the source has multiple channels, average corresponding samples across all channels element-wise to produce a single `Float32Array` of length `N` (the total sample count).
 3. Determine the audio sample rate `sr` (e.g., 44100 or 48000 Hz).
-4. Define the minimum loop duration as `minDuration = 0.5` seconds and the maximum loop duration as `maxDuration = min(audioBuffer.duration, 60.0)` seconds. Convert to sample counts: `minSamples = Math.round(minDuration * sr)`, `maxSamples = Math.round(maxDuration * sr)`.
+4. Define the minimum loop duration as `minDuration = 0.02` seconds (20 ms) and the maximum loop duration as `maxDuration = min(audioBuffer.duration, 60.0)` seconds. Convert to sample counts: `minSamples = Math.round(minDuration * sr)`, `maxSamples = Math.round(maxDuration * sr)`.
 
-> **Musician note:** The original maximum of 30 seconds was too restrictive. At 80 BPM (a common hip-hop or dub tempo), a single 4-bar phrase is 12 seconds; an 8-bar phrase is 24 seconds; a 16-bar phrase — entirely normal for a verse loop — is 48 seconds. Capping at 30 seconds means an 8-bar loop at 75 BPM (32 seconds) would be excluded. 60 seconds covers 16 bars at 60 BPM and still keeps analysis tractable. The minimum of 0.5 seconds is acceptable for one-shot percussion hits used as micro-loops, but for melodic or harmonic content a single musical bar is rarely shorter than 1 second even at 120 BPM (0.5 s per bar only occurs above 120 BPM in cut time). This minimum is left at 0.5 s to remain permissive.
+> **Creator note:** The minimum of 0.02 s (20 ms) is chosen to serve the full range of creator profiles. Sound designers building instrument patches need sustain loops as short as a few oscillator cycles — at 100 Hz that is 10 ms; 20 ms covers bass-register content (50 Hz = one cycle at 20 ms) and is a safe practical floor. Musicians isolating notes and producers working with bar-length phrases are unaffected by this floor. The maximum of 60 seconds covers 16 bars at 60 BPM (the longest credible phrase loop) while keeping analysis tractable.
 
 ### Phase 2: Identify Zero-Crossing Candidates for Loop Boundaries
 
@@ -44,6 +44,7 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
 
 9. For each pair `(startIdx, endIdx)` formed by taking a start from `upCrossings` and an end from `upCrossings` such that `minSamples <= (endIdx - startIdx) <= maxSamples`:
    a. **Avoid exhaustive search**: do not test all O(M²) pairs. Instead, for each `startIdx`, compute the set of target `endIdx` values = `startIdx + preferredLength ± toleranceSamples` for each `preferredLength` in `preferredLengths`, where `toleranceSamples = Math.round(0.05 * sr)` (50 ms). If no preferred lengths, sample the space: for each `startIdx`, test end points at regular 50 ms intervals within [minSamples, maxSamples] after the start.
+      If no preferred lengths exist, sample the space: for each `startIdx`, test end points at regular **5 ms intervals** within `[minSamples, maxSamples]` after the start. A 5 ms step (not 50 ms) is required so that micro-duration candidates in the 20–200 ms range are adequately covered for the sound designer profile.
    b. For each candidate pair, snap `endIdx` to the nearest entry in `upCrossings` within `toleranceSamples` samples of the target. If no crossing is found within tolerance, skip.
    c. **Slope continuity score** `S_slope` (0.0–1.0): Compute the slope at the start crossing as `slope_start = samples[startIdx + 1] - samples[startIdx]` and at the end crossing as `slope_end = samples[endIdx + 1] - samples[endIdx]`. Score: `S_slope = 1.0 - clamp(|slope_start - slope_end| / maxExpectedSlope, 0, 1)`, where `maxExpectedSlope = 0.01` (empirical; tune if needed).
    d. **Waveform shape continuity score** `S_shape` (0.0–1.0): Extract a 20 ms window of samples immediately after `startIdx` (the "start tail") and a 20 ms window immediately before `endIdx` (the "end tail"). Compute the normalized cross-correlation of the two windows. The peak cross-correlation value (clamped to [0, 1]) is `S_shape`.
@@ -51,11 +52,11 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
    f. **Energy continuity score** `S_energy` (0.0–1.0): Compute the RMS of a 50 ms window immediately before `endIdx` and a 50 ms window immediately after `startIdx`. Score: `S_energy = 1.0 - clamp(|RMS_end_tail - RMS_start_tail| / maxExpectedRMSDelta, 0, 1)`, where `maxExpectedRMSDelta = 0.1`. This rewards candidates where the perceived loudness at the stitch point is continuous — an abrupt jump in level is audible even when the waveform is technically click-free.
    g. **Composite score**: `score = 0.35 * S_shape + 0.30 * S_slope + 0.20 * S_period + 0.15 * S_energy`. Higher is better.
 
-> **Musician note:** The original scoring had no energy continuity term. A loop can pass zero-crossing and slope-match tests perfectly but still sound wrong if the volume level jumps suddenly at the stitch — for example, a loop that ends on a decaying tail and wraps back to a loud attack. The energy score penalizes these cases. The weights have been adjusted: shape and slope remain primary, but musical period and energy continuity share the remaining 35%. These weights are named constants and should be tuned empirically during testing with real sample material.
+> **Creator note:** The original scoring had no energy continuity term. A loop can pass zero-crossing and slope-match tests perfectly but still sound wrong if the volume level jumps suddenly at the stitch — for example, a loop that ends on a decaying tail and wraps back to a loud attack. The energy score penalizes these cases. The weights have been adjusted: shape and slope remain primary, but musical period and energy continuity share the remaining 35%. These weights are named constants and should be tuned empirically during testing with real sample material.
 
 10. Collect all scored candidates and sort descending by `score`. Retain the top 10 candidates.
 
-11. **Deduplication**: remove candidates whose start and end times both lie within 50 ms of a higher-ranked candidate already in the output list. This prevents near-duplicate results clustering at the same audio region.
+11. **Deduplication**: remove candidates whose start and end times both lie within **10 ms** of a higher-ranked candidate already in the output list. This prevents near-duplicate results clustering at the same audio region. A 10 ms tolerance (reduced from any larger value) is necessary so that distinct micro-duration loops that differ by only a few milliseconds are not incorrectly eliminated.
 
 ### Phase 5: Crossfade Boundary Preparation
 
@@ -80,7 +81,7 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
     - `crossfadeDuration` (float): recommended crossfade in seconds (0 or 0.01)
     - `rank` (integer): 1-based rank position
 
-> **Musician note:** The candidate list UI should display the `duration` field in a musically legible format. Showing "3.812 s" is less useful than "3.812 s (≈ 2 bars @ 120 BPM)" when a tempo reference is available, or at minimum showing "3.812 s" formatted as minutes:seconds for durations over a minute. If the user has entered a tempo reference in UC-006, the UI should annotate each candidate with its bar/beat count.
+> **Creator note:** The candidate list UI should display the `duration` field in a legible format for all profiles. Sound designers need millisecond precision (e.g., "22 ms"); producers and musicians benefit from bar/beat annotations when a tempo reference is available (e.g., "≈ 2 bars @ 120 BPM"). At minimum, durations over one minute should be formatted as `mm:ss.ms`. If the user has entered a tempo reference via UC-006, the UI should annotate each candidate with its bar/beat count.
 
 14. The main thread receives the candidates, stores them in application state, dispatches an "candidates-ready" event that triggers:
     - UC-002's overlay rendering pass (loop regions drawn on the waveform)
@@ -90,7 +91,7 @@ The detection algorithm runs entirely in a Web Worker to avoid blocking the main
 
 ### AF-1: Audio shorter than minimum loop duration
 
-If `audioBuffer.duration < minDuration` (less than 0.5 seconds), skip all analysis phases and return an empty candidate list with a reason code `"TOO_SHORT"`.
+If `audioBuffer.duration < minDuration` (less than 0.02 seconds / 20 ms), skip all analysis phases and return an empty candidate list with a reason code `"TOO_SHORT"`.
 
 ### AF-2: No zero-crossings found
 
@@ -125,13 +126,14 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 ## Acceptance Criteria
 
 1. For a 4/4 drum loop of 2, 4, or 8 bars at 120 BPM (approximately 2.0, 4.0, or 8.0 seconds), the top-ranked candidate's loop duration is within ±50 ms of the true musical period. Additionally, for a 4-bar loop at 80 BPM (approximately 12.0 seconds) the top candidate must also be within ±50 ms — this tests that slower-tempo material is not cut off by the maxDuration ceiling.
+1a. For a synthetic repeating micro-loop (e.g., a sine wave at 50 Hz with a period of 20 ms), at least one returned candidate has a duration within ±5 ms of the true period. This tests that the sound designer use case is served — micro-duration sustain loops must be detectable.
 2. For audio that has a clean, obvious loop region, the top candidate's `score` is >= 0.7.
 3. All returned candidates have their `startSample` and `endSample` coinciding with upward zero-crossings in the mono signal (verifiable by checking `samples[startSample - 1] < 0 && samples[startSample] >= 0`).
 4. No two candidates in the returned list have both `startTime` and `endTime` within 50 ms of each other.
 5. The candidate list contains at most 10 entries.
 6. Detection completes and posts results to the main thread within 10 seconds for audio files up to 5 minutes in length.
 7. For a completely silent audio file (all zeros), the system returns an empty list or a list marked `lowConfidence: true`, and the UI shows an appropriate message without throwing.
-8. For audio shorter than 0.5 seconds, an empty list is returned with reason code `"TOO_SHORT"` and the UI displays a user-friendly explanation.
+8. For audio shorter than 0.02 seconds (20 ms), an empty list is returned with reason code `"TOO_SHORT"` and the UI displays a user-friendly explanation.
 9. The waveform overlay is updated with loop candidate regions immediately after the "candidates-ready" event fires.
 10. Each candidate object contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`).
 11. Running detection a second time on the same file (e.g., after replacing and re-uploading the same file) produces the same ranked list (algorithm is deterministic).
@@ -148,7 +150,8 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 - AC-10: each candidate object produced by the algorithm contains all required fields (`startSample`, `endSample`, `startTime`, `endTime`, `duration`, `score`, `slopeScore`, `shapeScore`, `periodScore`, `crossfadeDuration`, `rank`)
 - AC-11: running the algorithm twice on the same Float32Array input produces identical ranked lists
 - AC-7: algorithm returns an empty list (or `lowConfidence: true` entries) for an all-zero Float32Array
-- AC-8: algorithm returns an empty list with reason code `"TOO_SHORT"` for a Float32Array shorter than 0.5 s at the given sample rate
+- AC-8: algorithm returns an empty list with reason code `"TOO_SHORT"` for a Float32Array shorter than 0.02 s (20 ms) at the given sample rate
+- AC-1a: on a synthetic 50 Hz sine wave (period = 20 ms), at least one candidate has duration within ±5 ms of 20 ms
 - Score weights sum to 1.0 (0.35 + 0.30 + 0.20 + 0.15 = 1.0)
 
 ### E2E (Playwright)
@@ -166,7 +169,7 @@ If all candidate pairs produce `score < 0.3`, return the top 3 regardless (witho
 - The composite score weights (0.4 shape, 0.35 slope, 0.25 period) are initial values and may require tuning during testing. Define them as named constants at the top of the worker script.
 - Candidate objects are plain serializable JavaScript objects (no class instances, no functions, no circular references) so they can be passed through the structured-clone algorithm used by `postMessage`.
 - The crossfade duration stored on each candidate (Phase 5) is a recommendation for UC-004's playback engine. UC-004 must apply this crossfade when scheduling looped playback.
-- BPM detection is explicitly out of scope for v1. The autocorrelation in Phase 3 identifies period lengths without computing or exposing BPM as a value. However, the system should accept a user-supplied BPM hint (see UC-006) which can be used to bias the `S_period` scoring: if the user states the sample is 120 BPM, the worker can compute expected bar lengths at that BPM and score candidates whose duration aligns with those lengths more favorably.
+- Automatic BPM detection (inferring tempo from the audio signal) is out of scope for v1 and is planned for iteration 2. However, the system must accept a user-supplied BPM value via UC-006. When the worker receives a `bpm` parameter, it computes expected bar lengths at that tempo and biases `S_period` scoring toward candidates whose duration aligns with those lengths. This is not detection — the user supplies the value; the algorithm uses it.
 
-> **Musician note:** Almost every producer knows the BPM of their sample — it's usually embedded in the filename ("loop_120bpm.wav") or stamped on the sample pack. A simple BPM input field transforms the period scoring from a guess into a certainty, and is the single highest-leverage improvement to musical quality of results. It does not require automatic BPM detection; user-supplied is sufficient.
+> **Creator note:** Almost every producer knows the BPM of their sample — it's usually embedded in the filename ("loop_120bpm.wav") or stamped on the sample pack. A simple BPM input field transforms the period scoring from a guess into a certainty, and is the single highest-leverage improvement to musical quality of results. It does not require automatic BPM detection; user-supplied is sufficient.
 - For Phase 4a, the pair-search strategy must avoid O(M²) complexity. On a 5-minute file at 44100 Hz there are approximately 13 million samples and potentially tens of thousands of zero-crossings; an exhaustive pairing would take minutes. The preferred-length + tolerance window approach reduces this to O(M × P) where P is the number of preferred period lengths (typically < 10).

@@ -1,6 +1,6 @@
 # UC-006 — Set Tempo Reference
 
-> **Musician note:** This use case was identified as missing during a musician-perspective review. Almost every musician knows the BPM of their sample — it is usually stamped in the filename, the sample pack metadata, or the musician's own session notes. Accepting a user-supplied BPM value costs almost nothing to implement, but unlocks musically-aware result annotations (bar counts), improved period scoring in UC-003, and more readable filenames in UC-005. It requires no automatic BPM detection — the musician types the value; the system uses it.
+> **Creator note:** This use case was elevated to a must-have for v1 following a creator-perspective review. Producers almost always know the BPM of their sample — it is stamped in the filename, the sample pack metadata, or their own session notes. Accepting a user-supplied BPM value costs almost nothing to implement but unlocks musically-aware result annotations (bar counts), improved period scoring in UC-003, and more readable filenames in UC-005. It requires no automatic BPM detection — the creator types the value; the system uses it. BPM input is specifically relevant to the producer and musician profiles; it is not expected to be used by sound designers working with micro-duration sustain loops.
 
 ## Trigger
 
@@ -66,7 +66,7 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 2. If candidates are present, bar annotations update immediately after a valid BPM is entered — no page reload or re-analysis required.
 3. A candidate with `duration = 4.0 s` at 120 BPM is annotated "≈ 2 bars".
 4. A candidate with `duration = 8.0 s` at 120 BPM is annotated "≈ 4 bars".
-5. A candidate with `duration = 2.0 s` at 60 BPM is annotated "≈ 2 bars".
+5. A candidate with `duration = 2.0 s` at 60 BPM is annotated "≈ 0.5 bar". (60 BPM in 4/4 = 1 beat/s = 4 s/bar; 2.0 s ÷ 4.0 s/bar = 0.5 bars.)
 6. An input of "0" or an empty field clears the tempo reference and removes bar annotations.
 7. An input of "301" displays a validation error and does not update `tempoReference`.
 8. An input of "abc" displays a validation error and does not update `tempoReference`.
@@ -93,7 +93,7 @@ For v1, the tool assumes 4/4 time (4 beats per bar). If a user working in 3/4 or
 
 ## Notes / Constraints
 
-- The BPM field should be positioned close to the waveform or the candidate list — not buried in a settings panel. Musicians reference it frequently during a session. A compact inline label + number input above or below the waveform is appropriate.
+- The BPM field should be positioned close to the waveform or the candidate list — not buried in a settings panel. Producers and musicians reference it frequently during a session; sound designers can ignore it. A compact inline label + number input above or below the waveform is appropriate.
 - The field should display the current `tempoReference` value on load if one was set earlier in the session. (Since the app has no persistence, this only applies within a single browser session.)
 - BPM entry must not trigger a re-run of the full loop detection algorithm. Bar annotation computation is a lightweight post-processing step that runs on the main thread against the existing candidate data.
 - The tempo reference is passed to the analysis worker only when detection is (re-)triggered — not retroactively. Bar annotations on existing candidates are computed on the main thread without re-invoking the worker.

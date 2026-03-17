@@ -15,6 +15,7 @@ This folder contains implementation-level use case documents. Each file describe
 | UC-007 | Adjust Loop Points Manually | Accepted |
 | UC-008 | Select Creator Profile | Accepted |
 | UC-009 | Batch Export Loop Candidates | Draft |
+| UC-010 | Cut-Move-Crossfade Post-Processing | Draft |
 
 ## Purpose
 

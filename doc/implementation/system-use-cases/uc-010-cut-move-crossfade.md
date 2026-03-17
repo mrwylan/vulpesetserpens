@@ -41,16 +41,17 @@ The user clicks the "Cut · Move · Crossfade" button, which is visible on the s
    - **Section 3 — A tail** (full amplitude): samples `[overlap, lenA)` of Part A. Length: `lenA - overlap` samples.
    - Applied identically across all channels. The output is computed as new `Float32Array` channel data — it is not a subarray of the original `AudioBuffer`.
 6. The output length in samples is `(lenB - overlap) + overlap + (lenA - overlap)` = `L - overlap` = `L - round(L/24)` ≈ `23L/24`. The output duration in seconds is `outputLength / sampleRate`.
-7. The system creates a new `LoopCandidate` entry representing the processed result:
-   - `startSample = 0`, `endSample = outputLength` (relative to the processed buffer, not the original).
+7. The system creates a new `DerivedCandidate` entry representing the processed result:
+   - `sourceId`: the `id` of the source `LoopCandidate` this was derived from.
+   - `startSample = 0`, `endSample = outputLength` (offsets into the processed buffer, not the original `AudioBuffer`).
    - `duration = outputLength / sampleRate`.
-   - `processedChannelData`: the new `Float32Array[]` for each channel (stored on the candidate; playback and export use this instead of the original `AudioBuffer` when present).
-   - `score`, `beatScore`, `crossfadeDuration` all set to `0` — this is a manually produced result, not a scored detection output.
-   - `userModified = true`, `derivedBy = 'cut-move-crossfade'` (a new string literal type alongside `'manual'`).
+   - `processedChannelData`: the new `Float32Array[]` for each channel (playback and export read from this instead of the original `AudioBuffer`).
+   - `derivedBy = 'cut-move-crossfade'`.
    - If BPM is set, compute `barAnnotation` and `approximateBars` from the new duration.
-8. The new candidate is **appended** to the top of the candidate list (rank 1) and selected automatically. The original candidate remains in the list unchanged (rank shifts down by 1).
-9. The waveform overlay updates to show the new candidate's loop region (which spans the full processed buffer from 0 to `outputLength`).
-10. If audio was playing, playback stops and the player resets to the beginning of the new candidate.
+8. The new `DerivedCandidate` is **appended** to the end of the **Post-Processing Results** list, which is a separate application state array (`derivedCandidates`) independent of the main `candidates` array. The main candidate list is not modified. The new derived candidate is selected automatically within the post-processing section.
+9. The post-processing results row becomes visible (if it was previously hidden) and scrolls to show the newly added card.
+10. The main waveform overlay retains the source candidate's loop region highlighted. A thin vertical marker at `cutSample` is drawn on the waveform in a neutral colour (e.g., `--color-text-disabled`) to show where the cut was applied.
+11. If audio was playing, playback stops and the player resets to the beginning of the new derived candidate.
 
 ## Alternate Flows
 
@@ -64,7 +65,7 @@ The "Cut · Move · Crossfade" button is not rendered for Musician or Producer p
 
 ### AF-3: Processed candidate selected — user clicks "Cut · Move · Crossfade" again
 
-The operation is applied again to the already-processed candidate's `processedChannelData`, treating it as the source signal. Successive applications are allowed; each produces a new candidate prepended to the list.
+The operation can be applied to any main-list candidate regardless of how many derived candidates already exist. Each invocation adds a new card to the post-processing results row, using the source candidate's original audio data as input. The source candidate's `id` links each derived card back to its origin. Re-applying from the same source is allowed; this produces successive phase-rotated variants side by side in the post-processing row.
 
 ### AF-4: No candidates exist yet
 
@@ -89,19 +90,21 @@ The button is in a disabled state (not clickable) until at least one candidate i
 
 ## Acceptance Criteria
 
-1. With Sound Designer profile active and a candidate selected, a "Cut · Move · Crossfade" button is visible on the candidate detail panel.
-2. With Musician or Producer profiles active, the "Cut · Move · Crossfade" button is absent from the UI.
-3. After clicking the button, a new candidate appears at rank 1 in the candidate list within 500 ms; the original candidate shifts to rank 2.
-4. The new candidate's `duration` equals `(L - round(L/24)) / sampleRate` ± 1 sample tolerance (where `L = endSample - startSample` of the source candidate).
+1. With Sound Designer profile active and a candidate selected, a "Cut · Move · Crossfade" button is visible on the candidate's card in the main candidate row.
+2. With Musician or Producer profiles active, the "Cut · Move · Crossfade" button is absent from all candidate cards.
+3. After clicking the button, a new derived candidate card appears in the post-processing results row within 500 ms. The main candidate list is unchanged.
+4. The new derived candidate's `duration` equals `(L - round(L/24)) / sampleRate` ± 1 sample tolerance (where `L = endSample - startSample` of the source candidate).
 5. The cut point lands on an upward zero-crossing: `sourceSamples[cutSample - 1] < 0 && sourceSamples[cutSample] >= 0`, or falls within ±10 ms of `startSample + round(L * 2/3)` when no crossing is available.
 6. The output buffer contains exactly three contiguous sections as specified: B head (full amplitude), crossfade zone (`round(L/24)` samples), A tail (full amplitude).
 7. In the crossfade zone, the first sample is weighted `(B_tail[0] * 1.0 + A_head[0] * 0.0)` and the last sample is weighted `(B_tail[n-1] * (1/overlap) + A_head[n-1] * ((overlap-1)/overlap))`, matching the slope formula.
-8. Playing the new candidate (UC-004) uses the processed channel data, not the original `AudioBuffer` region.
-9. Exporting the new candidate (UC-005) produces a WAV file whose `data` chunk contains exactly `outputLength * numChannels * bytesPerSample` bytes of the processed audio.
-10. The new candidate is marked `userModified: true` and `derivedBy: 'cut-move-crossfade'`; the candidate list displays a visual indicator (e.g., a "⟳" or "CMX" badge) to distinguish it from detected candidates.
-11. The original source candidate is unchanged after the operation (same `startSample`, `endSample`, `duration`, `score` as before).
-12. Applying Cut-Move-Crossfade to the new processed candidate (AF-3) produces a second derived candidate at rank 1; the first processed candidate shifts to rank 2.
+8. Playing a derived candidate (UC-004) uses the `processedChannelData`, not the original `AudioBuffer` region.
+9. Exporting a derived candidate (UC-005) produces a WAV file whose `data` chunk contains exactly `outputLength * numChannels * bytesPerSample` bytes of the processed audio.
+10. Each derived candidate card in the post-processing row displays the "CMX" badge, the `duration`, and source candidate reference (e.g., "from #2"), along with Play and Export buttons.
+11. The source candidate in the main row is unchanged after the operation (same `startSample`, `endSample`, `duration`, `score`).
+12. Clicking "Cut · Move · Crossfade" on the same or a different source candidate appends an additional card to the post-processing row; cards already in the row are unaffected.
 13. With loop region length `L < 48` samples, the button is disabled and shows the FC-1 message on hover/focus.
+14. The post-processing results row is hidden (not rendered) when `derivedCandidates` is empty; it becomes visible as soon as the first derived candidate is added.
+15. A vertical cut-point marker appears on the waveform at the `cutSample` position when the source candidate is selected, and disappears when a different main candidate is selected.
 
 ## Test Coverage
 
@@ -117,21 +120,39 @@ The button is in a disabled state (not clickable) until at least one candidate i
 
 ### E2E (Playwright)
 
-- AC-1: with Sound Designer active, the "Cut · Move · Crossfade" button is present in the DOM on the selected candidate panel.
-- AC-2: with Musician or Producer active, the button is absent.
-- AC-3: clicking the button adds a new candidate at rank 1; the previous rank-1 candidate becomes rank 2.
-- AC-4: the rank-1 candidate's displayed duration equals the source candidate's duration minus one overlap period (1/24), within ±2 ms.
-- AC-10: the rank-1 candidate row shows the CMX visual badge distinguishing it from auto-detected candidates.
-- AC-11: the source candidate (now rank 2) retains its original duration and score unchanged.
-- AC-9: exporting the processed candidate triggers a WAV download whose file size corresponds to the processed duration at the source sample rate and channel count.
+- AC-1: with Sound Designer active, the "Cut · Move · Crossfade" button is present on the candidate card in the main row.
+- AC-2: with Musician or Producer active, the button is absent from all candidate cards.
+- AC-3: clicking the button makes the post-processing results row visible and adds one derived candidate card to it.
+- AC-4: the derived candidate card's displayed duration equals the source candidate's duration minus one overlap period (≈1/24), within ±2 ms.
+- AC-10: the derived candidate card shows the "CMX" badge and a "from #N" source reference label.
+- AC-11: the source candidate in the main row retains its original duration and score unchanged.
+- AC-12: clicking "Cut · Move · Crossfade" a second time (on any main candidate) appends a second card to the post-processing row; the first derived card is unchanged.
+- AC-14: before any CMX operation, the post-processing row is absent from the DOM.
+- AC-9: exporting a derived candidate triggers a WAV download whose file size corresponds to the processed duration at the source sample rate and channel count.
 
 ## Notes / Constraints
 
 - `cutMoveCrossfade` is a **pure function** in `src/audio/`: `cutMoveCrossfade(channelData: Float32Array[], cutSample: number, overlapSamples: number): Float32Array[]`. It takes pre-extracted channel data (not an `AudioBuffer`), performs no I/O, and returns new `Float32Array[]`. It is safe to call from the main thread — the output buffer is at most `L` samples, which for the Sound Designer profile maximum of 1 s at 48 kHz is 48 000 samples per channel.
-- The `LoopCandidate` type must be extended with an optional `processedChannelData?: Float32Array[]` field. When this field is present, playback (`useAudioPlayer`) must create an `AudioBuffer` from it instead of slicing the original source `AudioBuffer`. Export (`encodeWav`, `encodeAiff`) must also read from `processedChannelData` when present.
-- The `derivedBy` field is a new optional string literal union on `LoopCandidate`: `'cut-move-crossfade' | 'manual'` (where `'manual'` was previously implicit via `userModified`). Existing manual-adjustment code does not need to be changed — the `derivedBy` field is additive.
+- A new `DerivedCandidate` type is added to `src/types.ts` (separate from `LoopCandidate`):
+  ```ts
+  interface DerivedCandidate {
+    id: string                        // unique id (e.g. crypto.randomUUID())
+    sourceId: string                  // id of the LoopCandidate this was derived from
+    derivedBy: 'cut-move-crossfade'
+    processedChannelData: Float32Array[]
+    startSample: number               // always 0
+    endSample: number                 // = outputLength
+    duration: number                  // seconds
+    barAnnotation?: string
+    approximateBars?: number
+  }
+  ```
+  `LoopCandidate` is not modified — keeping the two types separate avoids polluting the detection type with post-processing concerns.
+- Application state gains a `derivedCandidates: DerivedCandidate[]` array (initially empty, reset to `[]` when a new file is loaded or re-analysis runs). Playback (`useAudioPlayer`) and export (`encodeWav`, `encodeAiff`) must accept a `DerivedCandidate` in addition to a `LoopCandidate` — they branch on whether the audio source is `processedChannelData` (derived) or a subarray of the original `AudioBuffer` (detected).
 - Zero-crossing snap uses the `upCrossings` array already stored in application state from UC-003. The snap radius is ±10 ms = `Math.round(0.01 * sampleRate)` samples. The snap function must search the `upCrossings` array for the entry with the smallest absolute difference to `idealCut`, then check whether the distance is within the radius.
 - The crossfade is a **linear slope** (equal-power is not required here). The intent is to silence the B tail and raise the A head monotonically — a simple linear weight is correct and matches how hardware samplers handle splice crossfades.
 - The button label "Cut · Move · Crossfade" uses interpunct (·) separators, not hyphens, to communicate the three-step nature of the operation as a cohesive action rather than a compound noun.
-- The "Cut · Move · Crossfade" button must only be rendered when `creatorProfile === 'sound-designer'`. Use a conditional render in the candidate detail component, not a CSS `display: none` — the button must be absent from the accessibility tree for non-sound-designer profiles.
+- The "Cut · Move · Crossfade" button must only be rendered when `creatorProfile === 'sound-designer'`. Use a conditional render in the candidate card component, not a CSS `display: none` — the button must be absent from the accessibility tree for non-sound-designer profiles.
 - Processing happens synchronously on the main thread. For the Sound Designer duration limit of 1 s, this is at most ~48 000 samples per channel — negligible computation time.
+- The post-processing results row is a sibling section to `<CandidateSection>` in the component tree (see ui-layout-spec.md), rendered only when `derivedCandidates.length > 0` and `creatorProfile === 'sound-designer'`. It is not a nested sub-list inside `<CandidateSection>`.
+- `derivedCandidates` must be reset to `[]` when the user loads a new file (`handleClose` / `handleFileSelected`) or when re-analysis runs (profile change, BPM change), as the processed audio is based on the old source buffer.

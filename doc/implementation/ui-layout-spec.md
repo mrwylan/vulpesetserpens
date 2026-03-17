@@ -204,12 +204,23 @@ This is the primary working state. Full layout:
 │  │   0.12 – 2.12 s  │ │   0.08 – 4.08 s  │ │   0.12 – 1.12 s  │    │
 │  │                  │ │                  │ │                  │    │
 │  │  [▶ play]  [↓]   │ │  [▶ play]  [↓]   │ │  [▶ play]  [↓]   │    │
+│  │  [Cut·Move·XF]   │ │  [Cut·Move·XF]   │ │  [Cut·Move·XF]   │    │  ← sound designer only
 │  └──────────────────┘ └──────────────────┘ └──────────────────┘    │
 │                                                                      │
 │  ┌──────────────────┐  ...                                          │
 │  │ ▌ #4        ██░░ │                                               │
 │  │   ...            │                                               │
 │  └──────────────────┘                                               │
+│                                                                      │
+├──────────────────────────────────────────────────────────────────────┤
+│  POST-PROCESSED  (sound designer · shown only when results exist)    │  ← CMX SECTION HEADER
+│                                                                      │
+│  ┌──────────────────┐ ┌──────────────────┐                          │  ← DERIVED CARDS
+│  │ CMX  from #1     │ │ CMX  from #2     │                          │
+│  │   ~22 ms         │ │   ~44 ms         │                          │
+│  │                  │ │                  │                          │
+│  │  [▶ play]  [↓]   │ │  [▶ play]  [↓]   │                          │
+│  └──────────────────┘ └──────────────────┘                          │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -302,6 +313,33 @@ Sound designer view (BPM unset, micro-loop duration < 1 s):
 
 ---
 
+### Post-Processing Results row (Sound Designer only)
+
+```
+POST-PROCESSED  (2 results)
+
+┌───────────────────────┐  ┌───────────────────────┐
+│ CMX        from #1    │  │ CMX        from #2    │
+│   22 ms               │  │   44 ms               │
+│   0.000 – 22.0 ms     │  │   0.000 – 44.0 ms     │
+│                       │  │                       │
+│  [▶  Play]   [↓]      │  │  [▶  Play]   [↓]      │
+└───────────────────────┘  └───────────────────────┘
+```
+
+- This section is **only rendered when `creatorProfile === 'sound-designer'` and `derivedCandidates.length > 0`**. When it is absent, no empty placeholder or heading is shown.
+- Section heading: "POST-PROCESSED", same typographic style as "LOOP CANDIDATES". No export-all button in this row (derived candidates are exported individually).
+- Derived candidate cards use the same fixed `--candidate-card-width` and horizontal scrolling row layout as the main candidate row.
+- **CMX badge:** a small pill-shaped label in `--color-surface-raised` with `--color-text-secondary` text reading "CMX". Positioned at the top-left of the card in place of the rank number and colour strip.
+- **Source reference:** "from #N" label in `--text-xs`, `--color-text-secondary`, where N is the rank of the source `LoopCandidate`. This lets the creator trace which derived result came from which detected candidate.
+- **Duration:** displayed in milliseconds (as with sound designer cards in the main row).
+- **Play and Export buttons:** same behaviour as main candidate cards. Play uses `processedChannelData`; Export writes the processed audio to WAV/AIFF (UC-005 with derived candidate input).
+- **No score bar, no adjustment controls:** derived cards do not show a quality score (there is none) and do not offer nudge/drag boundary controls (the processed buffer has no relationship to the original zero-crossing list).
+- **Selected state:** same `--color-border-strong` / `--color-surface-raised` treatment as main candidate cards. Selecting a derived card does not change the waveform overlay — the waveform continues to show the most recently selected main candidate and its cut-point marker.
+- **No keyboard rank shortcuts (1–9):** the digit shortcuts apply only to the main candidate row. The post-processing row is navigated with Tab and arrow keys within its scroller.
+
+---
+
 ### Keyboard interaction map
 
 Coding agents must implement these shortcuts globally (not requiring focus on a specific element):
@@ -338,9 +376,16 @@ Focus management: the page must have a logical focus order (header → waveform 
       <CandidateSectionHeader />    — "N found" label, export-all button
       <CandidateScroller>
         <CandidateCard />           — one per result, UC-004, UC-005, UC-007
-        ...
+        ...                         — includes "Cut·Move·Crossfade" button (sound designer only)
       </CandidateScroller>
     </CandidateSection>
+    <DerivedCandidateSection>       — UC-010; rendered only when profile=sound-designer AND derivedCandidates.length > 0
+      <DerivedSectionHeader />      — "POST-PROCESSED" label
+      <CandidateScroller>
+        <DerivedCandidateCard />    — one per DerivedCandidate, UC-004 + UC-005 only
+        ...
+      </CandidateScroller>
+    </DerivedCandidateSection>
   </AppShell>
 ```
 

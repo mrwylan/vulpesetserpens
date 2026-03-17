@@ -317,23 +317,99 @@ export default function App() {
   const handleBpmChange = useCallback(
     (newBpm: number | null) => {
       setBpm(newBpm)
+      const buffer = audioBufferRef.current
+      if (!buffer) return
+
+      stop()
+      cancelWorker()
+      setSelectedRank(null)
+
+      const profileConfig = PROFILE_CONFIGS[profile]
+
       setAppState(prev => {
-        if (prev.kind !== 'results') return prev
-        const candidates = newBpm !== null
-          ? prev.candidates.map(c => ({
-              ...c,
-              barAnnotation: computeBarAnnotation(c.duration, newBpm),
-              approximateBars: c.duration / ((60 / newBpm) * 4),
-            }))
-          : prev.candidates.map(c => ({
-              ...c,
-              barAnnotation: undefined,
-              approximateBars: undefined,
-            }))
-        return { ...prev, candidates }
+        if (prev.kind !== 'results' && prev.kind !== 'analyzing') return prev
+        return {
+          kind: 'analyzing',
+          audioFile: prev.audioFile,
+          buffer,
+          progressMessage: 're-analysing…',
+          waveformPeaks: prev.waveformPeaks ?? null,
+        }
       })
+
+      analyze(
+        buffer,
+        {
+          onProgress: (phase) => {
+            const messages: Record<string, string> = {
+              'mono mix': 'mixing to mono…',
+              'zero-crossings': 'finding zero-crossings…',
+              autocorrelation: 'estimating musical period…',
+              scoring: 'scoring candidates…',
+              complete: 'finalizing results…',
+            }
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return { ...prev, progressMessage: messages[phase] ?? `${phase}…` }
+            })
+          },
+          onComplete: (candidates, upCrossings, reasonCode) => {
+            let analysisWarning: string | undefined
+            if (reasonCode === 'TOO_SHORT') {
+              analysisWarning = 'Audio is too short for loop detection (minimum 20 ms).'
+            } else if (reasonCode === 'NO_CROSSINGS') {
+              analysisWarning = 'No zero-crossings found. The audio may be DC-offset or silent.'
+            } else if (reasonCode === 'LOW_CONFIDENCE') {
+              analysisWarning = 'No high-quality loop points found. Results shown are best available but may produce audible clicks.'
+            }
+
+            let annotatedCandidates = candidates
+            if (newBpm !== null) {
+              annotatedCandidates = candidates.map(c => ({
+                ...c,
+                barAnnotation: computeBarAnnotation(c.duration, newBpm),
+                approximateBars: c.duration / ((60 / newBpm) * 4),
+              }))
+            }
+
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return {
+                kind: 'results',
+                audioFile: prev.audioFile,
+                buffer: prev.buffer,
+                waveformPeaks: prev.waveformPeaks!,
+                candidates: annotatedCandidates,
+                upCrossings,
+                analysisWarning,
+              }
+            })
+            if (annotatedCandidates.length > 0) setSelectedRank(1)
+          },
+          onError: (message) => {
+            setAppState(prev => {
+              if (prev.kind !== 'analyzing') return prev
+              return {
+                kind: 'results',
+                audioFile: prev.audioFile,
+                buffer: prev.buffer,
+                waveformPeaks: prev.waveformPeaks!,
+                candidates: [],
+                upCrossings: [],
+                analysisWarning: `Loop detection failed: ${message}`,
+              }
+            })
+          },
+        },
+        {
+          bpm: newBpm ?? undefined,
+          creatorProfile: profile,
+          minDuration: profileConfig.minDuration,
+          maxDuration: profileConfig.maxDuration,
+        }
+      )
     },
-    []
+    [stop, cancelWorker, analyze, profile]
   )
 
   const handleExport = useCallback(

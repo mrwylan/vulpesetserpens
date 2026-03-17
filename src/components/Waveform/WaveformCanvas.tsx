@@ -27,6 +27,11 @@ interface DragState {
   candidateRank: number
 }
 
+export interface CutPoint {
+  candidateRank: number
+  cutSample: number
+}
+
 interface WaveformCanvasProps {
   peaks: WaveformPeaks | null
   candidates: LoopCandidate[]
@@ -36,6 +41,7 @@ interface WaveformCanvasProps {
   totalSamples: number
   sampleRate: number
   isAnalyzing?: boolean
+  cutPoints?: CutPoint[]
   onCandidateUpdate?: (rank: number, startSample: number, endSample: number) => void
   onSelectCandidate?: (rank: number) => void
 }
@@ -51,6 +57,7 @@ export function WaveformCanvas({
   totalSamples,
   sampleRate,
   isAnalyzing,
+  cutPoints,
   onCandidateUpdate,
   onSelectCandidate,
 }: WaveformCanvasProps) {
@@ -181,7 +188,26 @@ export function WaveformCanvas({
       ctx.stroke()
       ctx.restore()
     }
-  }, [peaks, candidates, selectedRank, playheadPosition, totalSamples, isAnalyzing])
+
+    // Cut-point markers for derived candidates (shown when matching candidate is selected)
+    if (cutPoints && selectedRank !== null && totalSamples > 0) {
+      ctx.save()
+      ctx.strokeStyle = '#44445a'  // --color-text-disabled
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 3])
+      for (const cp of cutPoints) {
+        if (cp.candidateRank === selectedRank) {
+          const x = (cp.cutSample / totalSamples) * width
+          ctx.beginPath()
+          ctx.moveTo(x, 0)
+          ctx.lineTo(x, height)
+          ctx.stroke()
+        }
+      }
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+  }, [peaks, candidates, selectedRank, playheadPosition, totalSamples, isAnalyzing, cutPoints])
 
   // Setup canvas dimensions with HiDPI support
   const setupCanvas = useCallback(() => {

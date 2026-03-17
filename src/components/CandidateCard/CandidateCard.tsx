@@ -1,4 +1,4 @@
-import type { LoopCandidate } from '../../types'
+import type { CreatorProfile, LoopCandidate } from '../../types'
 import './CandidateCard.css'
 
 // Candidate colour palette — matches theme.css tokens
@@ -39,6 +39,7 @@ interface CandidateCardProps {
   isSelected: boolean
   upCrossings: number[]
   sampleRate: number
+  profile: CreatorProfile
   onPlay: (candidate: LoopCandidate) => void
   onStop: () => void
   onSelect: (rank: number) => void
@@ -46,12 +47,14 @@ interface CandidateCardProps {
   onNudgeStart: (rank: number, direction: 1 | -1) => void
   onNudgeEnd: (rank: number, direction: 1 | -1) => void
   onReset: (rank: number) => void
+  onCutMoveCrossfade: (candidate: LoopCandidate) => void
 }
 
 export function CandidateCard({
   candidate,
   isPlaying,
   isSelected,
+  profile,
   onPlay,
   onStop,
   onSelect,
@@ -59,6 +62,7 @@ export function CandidateCard({
   onNudgeStart,
   onNudgeEnd,
   onReset,
+  onCutMoveCrossfade,
 }: CandidateCardProps) {
   const { rank, duration, startTime, endTime, score, barAnnotation, lowConfidence, userModified } = candidate
   const color = getCandidateColor(rank)
@@ -176,6 +180,24 @@ export function CandidateCard({
           aria-label="Reset to original algorithm values"
         >
           reset to original
+        </button>
+      )}
+
+      {/* Cut · Move · Crossfade — sound designer only */}
+      {profile === 'sound-designer' && (
+        <button
+          className="CandidateCard__cmxBtn"
+          onClick={(e) => { e.stopPropagation(); onCutMoveCrossfade(candidate) }}
+          disabled={candidate.endSample - candidate.startSample < 48}
+          title={
+            candidate.endSample - candidate.startSample < 48
+              ? 'Loop region is too short for Cut-Move-Crossfade (minimum 48 samples).'
+              : 'Cut at 2/3, move start to end, crossfade the junction'
+          }
+          aria-label="Cut, Move, and Crossfade"
+          data-testid="cmx-button"
+        >
+          Cut · Move · Crossfade
         </button>
       )}
 

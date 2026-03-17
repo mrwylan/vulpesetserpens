@@ -4,11 +4,12 @@
  */
 
 import { useCallback, useRef, useState, type MutableRefObject } from 'react'
-import type { LoopCandidate } from '../types'
+import type { DerivedCandidate, LoopCandidate } from '../types'
 
 interface PlayerState {
   isPlaying: boolean
   playingRank: number | null
+  playingDerivedId: string | null
   loopStartTime: number
   loopDuration: number
   startedAt: number
@@ -17,6 +18,7 @@ interface PlayerState {
 const initialState: PlayerState = {
   isPlaying: false,
   playingRank: null,
+  playingDerivedId: null,
   loopStartTime: 0,
   loopDuration: 0,
   startedAt: 0,
@@ -101,7 +103,72 @@ export function useAudioPlayer(audioContextRef: MutableRefObject<AudioContext | 
       setPlayerState({
         isPlaying: true,
         playingRank: rank,
+        playingDerivedId: null,
         loopStartTime: loopStartSec,
+        loopDuration,
+        startedAt,
+      })
+    },
+    [audioContextRef, stop]
+  )
+
+  const playDerived = useCallback(
+    async (derived: DerivedCandidate, sampleRate: number) => {
+      const ctx = audioContextRef.current
+      if (!ctx) return
+
+      stop()
+
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume()
+        } catch (_e) {
+          console.error('AudioContext resume failed', _e)
+          return
+        }
+      }
+
+      if (ctx.state === 'closed') {
+        console.error('AudioContext is closed')
+        return
+      }
+
+      const { processedChannelData, endSample: outputLength } = derived
+      const numChannels = processedChannelData.length
+      const loopDuration = outputLength / sampleRate
+
+      if (loopDuration <= 0) {
+        console.warn('Derived candidate loop region is empty')
+        return
+      }
+
+      const audioBuffer = ctx.createBuffer(numChannels, outputLength, sampleRate)
+      for (let c = 0; c < numChannels; c++) {
+        // copyToChannel requires Float32Array<ArrayBuffer>; new Float32Array(src) always produces one
+        audioBuffer.copyToChannel(new Float32Array(processedChannelData[c]!), c)
+      }
+
+      const gainNode = ctx.createGain()
+      gainNode.gain.value = 1.0
+      gainNode.connect(ctx.destination)
+      gainNodeRef.current = gainNode
+
+      const sourceNode = ctx.createBufferSource()
+      sourceNode.buffer = audioBuffer
+      sourceNode.loop = true
+      sourceNode.loopStart = 0
+      sourceNode.loopEnd = loopDuration
+      sourceNode.connect(gainNode)
+      sourceNodeRef.current = sourceNode
+
+      const startedAt = ctx.currentTime
+      sourceNode.start(0, 0)
+
+      setPlayerState({
+        isPlaying: true,
+        playingRank: null,
+        playingDerivedId: derived.id,
+        loopStartTime: 0,
         loopDuration,
         startedAt,
       })
@@ -141,6 +208,7 @@ export function useAudioPlayer(audioContextRef: MutableRefObject<AudioContext | 
   return {
     playerState,
     play,
+    playDerived,
     stop,
     updateLoopBoundaries,
     getPlayheadPosition,

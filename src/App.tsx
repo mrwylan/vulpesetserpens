@@ -1,17 +1,19 @@
 import { useState, useRef, useCallback } from 'react'
-import type { AppState, LoopCandidate, WaveformPeaks, CreatorProfile } from './types'
+import type { AppState, DerivedCandidate, LoopCandidate, WaveformPeaks, CreatorProfile } from './types'
 import { DropZone } from './components/DropZone/DropZone'
 import { Header } from './components/Header/Header'
 import { WaveformCanvas } from './components/Waveform/WaveformCanvas'
 import { TimeRuler } from './components/Waveform/TimeRuler'
 import { CandidateList } from './components/CandidateList/CandidateList'
+import { DerivedCandidateSection } from './components/DerivedCandidateSection/DerivedCandidateSection'
 import { AnalysisProgress } from './components/AnalysisProgress/AnalysisProgress'
 import { useAnalysisWorker } from './hooks/useAnalysisWorker'
 import { useAudioPlayer } from './hooks/useAudioPlayer'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { encodeWav, applyCrossfade, generateExportFilename, downloadWav } from './audio/encodeWav'
 import { computeBarAnnotation, PROFILE_CONFIGS } from './audio/detectLoops'
-import { nudgeZeroCrossing } from './audio/zeroCrossings'
+import { nudgeZeroCrossing, snapToNearestZeroCrossing } from './audio/zeroCrossings'
+import { cutMoveCrossfade } from './audio/cutMoveCrossfade'
 import './styles/theme.css'
 import './styles/global.css'
 import './App.css'
@@ -59,13 +61,14 @@ export default function App() {
   const [bpm, setBpm] = useState<number | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [profile, setProfile] = useState<CreatorProfile>('musician')
+  const [derivedCandidates, setDerivedCandidates] = useState<DerivedCandidate[]>([])
 
   // Ref to keep the latest AudioBuffer for re-analysis on profile change
   const audioBufferRef = useRef<AudioBuffer | null>(null)
 
   const audioContextRef = useRef<AudioContext | null>(null)
   const { analyze, cancel: cancelWorker } = useAnalysisWorker()
-  const { playerState, play, stop, updateLoopBoundaries, getPlayheadPosition, sourceNodeRef } = useAudioPlayer(audioContextRef)
+  const { playerState, play, playDerived, stop, updateLoopBoundaries, getPlayheadPosition, sourceNodeRef } = useAudioPlayer(audioContextRef)
 
   // Get or create AudioContext (only inside user gesture)
   const getAudioContext = useCallback(() => {
@@ -82,6 +85,7 @@ export default function App() {
       setUploadError(null)
       stop()
       cancelWorker()
+      setDerivedCandidates([])
 
       setAppState({
         kind: 'loading',
@@ -213,12 +217,14 @@ export default function App() {
     setAppState({ kind: 'empty' })
     setSelectedRank(null)
     setUploadError(null)
+    setDerivedCandidates([])
   }, [stop, cancelWorker])
 
   /** Re-run analysis with a new profile. If no buffer is loaded, just update state. */
   const handleProfileChange = useCallback(
     (newProfile: CreatorProfile) => {
       setProfile(newProfile)
+      setDerivedCandidates([])
       const buffer = audioBufferRef.current
       if (!buffer) return
 
@@ -317,6 +323,7 @@ export default function App() {
   const handleBpmChange = useCallback(
     (newBpm: number | null) => {
       setBpm(newBpm)
+      setDerivedCandidates([])
       const buffer = audioBufferRef.current
       if (!buffer) return
 
@@ -592,6 +599,91 @@ export default function App() {
     })
   }, [bpm])
 
+  const handleCutMoveCrossfade = useCallback(
+    (candidate: LoopCandidate) => {
+      if (appState.kind !== 'results') return
+      const { buffer, upCrossings } = appState
+
+      const L = candidate.endSample - candidate.startSample
+      if (L < 48) return
+
+      // Extract loop channel data as a slice
+      const channelData: Float32Array[] = []
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        channelData.push(new Float32Array(
+          buffer.getChannelData(c).subarray(candidate.startSample, candidate.endSample)
+        ))
+      }
+
+      // Compute cut point in loop-slice coordinates
+      const idealCut = Math.round(L * 2 / 3)
+      const snapRadius = Math.round(0.01 * buffer.sampleRate)  // ±10 ms
+      // Remap absolute upCrossings to loop-relative coords, filter to loop bounds
+      const localCrossings = upCrossings
+        .map(x => x - candidate.startSample)
+        .filter(x => x >= 0 && x < L)
+      const snapped = snapToNearestZeroCrossing(idealCut, localCrossings, snapRadius)
+      const cutSampleRelative = snapped ?? idealCut
+      const noSnapWarning = snapped === null
+
+      const overlapSamples = Math.max(2, Math.round(L / 24))
+
+      let processedChannelData: Float32Array[]
+      try {
+        processedChannelData = cutMoveCrossfade(channelData, cutSampleRelative, overlapSamples)
+      } catch (err) {
+        console.error('Cut-Move-Crossfade failed:', err)
+        return
+      }
+
+      const outputLength = processedChannelData[0]!.length
+      const duration = outputLength / buffer.sampleRate
+
+      const derived: DerivedCandidate = {
+        id: crypto.randomUUID(),
+        sourceRank: candidate.rank,
+        derivedBy: 'cut-move-crossfade',
+        processedChannelData,
+        startSample: 0,
+        endSample: outputLength,
+        duration,
+        cutSample: candidate.startSample + cutSampleRelative,
+        noSnapWarning,
+        ...(bpm !== null ? {
+          barAnnotation: computeBarAnnotation(duration, bpm),
+          approximateBars: duration / ((60 / bpm) * 4),
+        } : {}),
+      }
+
+      setDerivedCandidates(prev => [...prev, derived])
+    },
+    [appState, bpm]
+  )
+
+  const handleExportDerived = useCallback(
+    (derived: DerivedCandidate) => {
+      if (appState.kind !== 'results') return
+      const { buffer, audioFile } = appState
+
+      const wavBuffer = encodeWav(
+        derived.processedChannelData,
+        buffer.sampleRate,
+        derived.endSample
+      )
+      const baseFilename = generateExportFilename(
+        audioFile.name,
+        derived.sourceRank,
+        derived.duration,
+        bpm ?? undefined,
+        derived.approximateBars !== undefined ? Math.round(derived.approximateBars) : undefined
+      )
+      // Replace .wav extension with _cmx.wav
+      const filename = baseFilename.replace(/\.wav$/, '_cmx.wav')
+      downloadWav(wavBuffer, filename)
+    },
+    [appState, bpm]
+  )
+
   // Keyboard shortcuts
   const candidates = appState.kind === 'results' ? appState.candidates : []
   useKeyboardShortcuts({
@@ -650,6 +742,7 @@ export default function App() {
             totalSamples={buffer.length}
             sampleRate={buffer.sampleRate}
             isAnalyzing={appState.kind === 'analyzing'}
+            cutPoints={derivedCandidates.map(d => ({ candidateRank: d.sourceRank, cutSample: d.cutSample }))}
             onCandidateUpdate={handleCandidateUpdate}
             onSelectCandidate={setSelectedRank}
           />
@@ -667,6 +760,7 @@ export default function App() {
             playingRank={playerState.playingRank}
             upCrossings={upCrossings}
             sampleRate={buffer.sampleRate}
+            profile={profile}
             analysisWarning={analysisWarning}
             onPlay={(candidate) => play(buffer, candidate)}
             onStop={stop}
@@ -675,6 +769,17 @@ export default function App() {
             onNudgeStart={handleNudgeStart}
             onNudgeEnd={handleNudgeEnd}
             onReset={handleReset}
+            onCutMoveCrossfade={handleCutMoveCrossfade}
+          />
+        )}
+
+        {appState.kind === 'results' && profile === 'sound-designer' && derivedCandidates.length > 0 && (
+          <DerivedCandidateSection
+            derivedCandidates={derivedCandidates}
+            playingDerivedId={playerState.playingDerivedId}
+            onPlay={(d) => playDerived(d, buffer.sampleRate)}
+            onStop={stop}
+            onExport={handleExportDerived}
           />
         )}
       </main>

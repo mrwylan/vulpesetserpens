@@ -69,6 +69,20 @@ export interface WorkerInput {
 
 export type CreatorProfile = 'sound-designer' | 'musician' | 'producer'
 
+export interface DerivedCandidate {
+  id: string
+  sourceRank: number
+  derivedBy: 'cut-move-crossfade'
+  processedChannelData: Float32Array[]
+  startSample: number   // always 0 (relative to processedChannelData)
+  endSample: number     // = outputLength
+  duration: number      // seconds
+  cutSample: number     // absolute index in the original AudioBuffer (for waveform marker)
+  noSnapWarning?: boolean
+  barAnnotation?: string
+  approximateBars?: number
+}
+
 export interface PlaybackState {
   isPlaying: boolean
   candidateRank: number | null

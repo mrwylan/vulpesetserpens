@@ -1,0 +1,46 @@
+.DerivedCandidateSection {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.DerivedCandidateSection__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.DerivedCandidateSection__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.DerivedCandidateSection__count {
+  color: var(--color-text-primary);
+}
+
+.DerivedCandidateSection__scroller {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent) var(--color-border);
+}
+
+.DerivedCandidateSection__scroller::-webkit-scrollbar {
+  height: 4px;
+}
+
+.DerivedCandidateSection__scroller::-webkit-scrollbar-track {
+  background: var(--color-border);
+}
+
+.DerivedCandidateSection__scroller::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: var(--radius-sm);
+}

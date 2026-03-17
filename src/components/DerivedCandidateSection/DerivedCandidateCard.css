@@ -1,0 +1,105 @@
+.DerivedCandidateCard {
+  width: var(--candidate-card-width);
+  flex-shrink: 0;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.DerivedCandidateCard__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.DerivedCandidateCard__badge {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-accent);
+  background-color: var(--color-accent-dim);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  letter-spacing: 0.05em;
+}
+
+.DerivedCandidateCard__source {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.DerivedCandidateCard__bars {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.DerivedCandidateCard__duration {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+}
+
+.DerivedCandidateCard__warning {
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+}
+
+.DerivedCandidateCard__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.DerivedCandidateCard__playBtn {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.DerivedCandidateCard__playBtn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.DerivedCandidateCard__playBtn--playing {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.DerivedCandidateCard__playBtn--playing:hover {
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.DerivedCandidateCard__exportBtn {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.DerivedCandidateCard__exportBtn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}

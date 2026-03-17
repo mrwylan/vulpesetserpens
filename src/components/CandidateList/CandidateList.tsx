@@ -1,4 +1,4 @@
-import type { LoopCandidate } from '../../types'
+import type { CreatorProfile, LoopCandidate } from '../../types'
 import { CandidateCard } from '../CandidateCard/CandidateCard'
 import './CandidateList.css'
 
@@ -8,6 +8,7 @@ interface CandidateListProps {
   playingRank: number | null
   upCrossings: number[]
   sampleRate: number
+  profile: CreatorProfile
   analysisWarning?: string
   onPlay: (candidate: LoopCandidate) => void
   onStop: () => void
@@ -16,6 +17,7 @@ interface CandidateListProps {
   onNudgeStart: (rank: number, direction: 1 | -1) => void
   onNudgeEnd: (rank: number, direction: 1 | -1) => void
   onReset: (rank: number) => void
+  onCutMoveCrossfade: (candidate: LoopCandidate) => void
 }
 
 export function CandidateList({
@@ -24,6 +26,7 @@ export function CandidateList({
   playingRank,
   upCrossings,
   sampleRate,
+  profile,
   analysisWarning,
   onPlay,
   onStop,
@@ -32,6 +35,7 @@ export function CandidateList({
   onNudgeStart,
   onNudgeEnd,
   onReset,
+  onCutMoveCrossfade,
 }: CandidateListProps) {
   return (
     <section className="CandidateList" aria-label="Loop candidates">
@@ -60,6 +64,7 @@ export function CandidateList({
                 isSelected={selectedRank === candidate.rank}
                 upCrossings={upCrossings}
                 sampleRate={sampleRate}
+                profile={profile}
                 onPlay={onPlay}
                 onStop={onStop}
                 onSelect={onSelectCandidate}
@@ -67,6 +72,7 @@ export function CandidateList({
                 onNudgeStart={onNudgeStart}
                 onNudgeEnd={onNudgeEnd}
                 onReset={onReset}
+                onCutMoveCrossfade={onCutMoveCrossfade}
               />
             </div>
           ))}

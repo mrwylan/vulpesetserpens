@@ -41,6 +41,7 @@ The user clicks the "Cut · Move · Crossfade" button, which is visible on the s
    - **Section 3 — A tail** (full amplitude): samples `[overlap, lenA)` of Part A. Length: `lenA - overlap` samples.
    - Applied identically across all channels. The output is computed as new `Float32Array` channel data — it is not a subarray of the original `AudioBuffer`.
 6. The output length in samples is `(lenB - overlap) + overlap + (lenA - overlap)` = `L - overlap` = `L - round(L/24)` ≈ `23L/24`. The output duration in seconds is `outputLength / sampleRate`.
+6a. **Normalize** — compute the peak absolute sample value across all channels of the output buffer. Scale all channels by `1.0 / peak` so the loudest sample reaches full scale (1.0). A single gain factor is applied to all channels to preserve stereo balance. If the output is silent (peak = 0), skip scaling.
 7. The system creates a new `DerivedCandidate` entry representing the processed result:
    - `sourceId`: the `id` of the source `LoopCandidate` this was derived from.
    - `startSample = 0`, `endSample = outputLength` (offsets into the processed buffer, not the original `AudioBuffer`).
@@ -105,6 +106,7 @@ The button is in a disabled state (not clickable) until at least one candidate i
 13. With loop region length `L < 48` samples, the button is disabled and shows the FC-1 message on hover/focus.
 14. The post-processing results row is hidden (not rendered) when `derivedCandidates` is empty; it becomes visible as soon as the first derived candidate is added.
 15. A vertical cut-point marker appears on the waveform at the `cutSample` position when the source candidate is selected, and disappears when a different main candidate is selected.
+16. The peak absolute sample value across all channels of `processedChannelData` equals 1.0 (or 0 for silent input).
 
 ## Test Coverage
 
@@ -117,6 +119,7 @@ The button is in a disabled state (not clickable) until at least one candidate i
 - AC-5 (snap): `snapToCutPoint(idealCut, upCrossings, snapRadiusSamples)` returns the closest crossing within radius or `idealCut` itself when none is found.
 - AC-13: `cutMoveCrossfade` called with `L = 40` (< 48) throws or returns `null` with a descriptive error string.
 - Stereo: `cutMoveCrossfade` applied to a 2-channel input produces 2-channel output; both channels are processed independently.
+- AC-16: `normalizeChannelData` scales the output so the maximum absolute value equals 1.0 for non-silent input; silent input is returned unchanged (peak remains 0); stereo input uses a single gain factor across both channels to preserve balance.
 
 ### E2E (Playwright)
 

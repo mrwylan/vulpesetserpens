@@ -14,6 +14,7 @@ import { encodeWav, applyCrossfade, generateExportFilename, downloadWav } from '
 import { computeBarAnnotation, PROFILE_CONFIGS } from './audio/detectLoops'
 import { nudgeZeroCrossing, snapToNearestZeroCrossing } from './audio/zeroCrossings'
 import { cutMoveCrossfade } from './audio/cutMoveCrossfade'
+import { normalizeChannelData } from './audio/normalize'
 import './styles/theme.css'
 import './styles/global.css'
 import './App.css'
@@ -630,7 +631,9 @@ export default function App() {
 
       let processedChannelData: Float32Array[]
       try {
-        processedChannelData = cutMoveCrossfade(channelData, cutSampleRelative, overlapSamples)
+        processedChannelData = normalizeChannelData(
+          cutMoveCrossfade(channelData, cutSampleRelative, overlapSamples)
+        )
       } catch (err) {
         console.error('Cut-Move-Crossfade failed:', err)
         return

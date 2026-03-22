@@ -103,6 +103,7 @@ These are the CSS custom properties that must be defined in `src/styles/theme.cs
 --layout-max-width: 1400px;
 --waveform-height:  140px;  /* canvas height, CSS pixels */
 --candidate-card-width: 220px;
+--snippet-preview-height: 44px;  /* waveform thumbnail inside candidate card */
 ```
 
 ---
@@ -270,6 +271,7 @@ Producer / musician view (BPM set, durations ≥ 1 s):
 ```
 ┌───────────────────────┐
 │ ▌  #1           ████  │  ← colour strip (left), rank, score bar (right)
+│ ┄┄┄┄╱╲┄┄┄╱╲╱╲┄┄┄┄┄╱╲┄│  ← waveform thumbnail (mini canvas)
 │    2 bars · 120 bpm   │  ← musical annotation (shown if BPM set)
 │    2.000 s            │  ← duration, monospace
 │    0.120 – 2.120 s    │  ← start – end, monospace, secondary colour
@@ -282,6 +284,7 @@ Sound designer view (BPM unset, micro-loop duration < 1 s):
 ```
 ┌───────────────────────┐
 │ ▌  #1           ████  │  ← colour strip (left), rank, score bar (right)
+│ ┄╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲┄┄│  ← waveform thumbnail (mini canvas)
 │    22 ms              │  ← duration in ms, monospace
 │    45.1 – 45.1 ms     │  ← start – end in ms, monospace, secondary colour
 │                       │
@@ -293,12 +296,13 @@ Sound designer view (BPM unset, micro-loop duration < 1 s):
 - Left edge: 4px colour strip using the candidate's `--color-loop-N`. This is the visual identity marker used across the card and the waveform overlay.
 - Rank label (`#1`, `#2`, …) in `--text-sm`, `--weight-bold`.
 - Score bar: a narrow horizontal bar (not a number) showing the composite score as a filled proportion. Fill colour matches the candidate colour.
+- **Waveform thumbnail:** a `<canvas>` element rendered immediately below the rank/score-bar row, full card width (minus `--space-3` horizontal padding on each side), `--snippet-preview-height` (44 px) tall. Shows the min/max peak waveform scoped to this candidate's sample range `[startSample, endSample]`, extracted from the global `WaveformPeaks` via `slicePeaks()` (see UC-002 AF-4). Waveform bars are drawn in the candidate's `--color-loop-N` at **30 % opacity**; the center line at **70 % opacity**. On selected state the bars rise to **50 % opacity**. The thumbnail is static: no overlays, no boundary markers, no playhead. If peak data is not yet available (analyzing state), the canvas shows an animated horizontal shimmer matching the main canvas shimmer style.
 - Musical annotation row (BPM-dependent): `--text-sm`, `--color-text-secondary`. Hidden if no BPM is set. Sound designers working with micro-loops (< 100 ms) typically leave BPM unset; this row is irrelevant to their workflow and its absence is correct.
 - Duration: `--font-mono`, `--text-base`, `--color-text-primary`. Display in seconds for durations ≥ 1 s (e.g. `2.000 s`); display in milliseconds for durations < 1 s (e.g. `22 ms`). This serves sound designers whose sustain loops are 20–200 ms.
 - Start–end: `--font-mono`, `--text-xs`, `--color-text-secondary`. Use the same unit as the duration display (ms or s) for consistency.
 - **Play button:** `--color-accent` background, `--color-bg` text, `--radius-sm`, `--space-2` padding. Label is "▶ Play" at rest; "■ Stop" while this candidate is playing. Pressing play on a different card stops the current playback.
 - **Export button:** icon-only (↓ or similar), `--color-surface-raised` background, `--color-border` border. Triggers UC-005 for this candidate only.
-- **Selected state:** card has `--color-border-strong` border and `--color-surface-raised` background. The corresponding waveform overlay brightens.
+- **Selected state:** card has `--color-border-strong` border and `--color-surface-raised` background. The corresponding waveform overlay brightens. The thumbnail bar opacity also rises to 50 %.
 - **Low-confidence flag:** if `lowConfidence: true`, a small "⚠" label appears near the score bar with `--color-warning`. Tooltip: "No high-quality loop point found — this is the best available result."
 - **User-modified flag:** if `userModified: true`, a small pencil icon replaces the score bar, label "(adjusted)". The score field is not shown.
 
@@ -376,6 +380,8 @@ Focus management: the page must have a logical focus order (header → waveform 
       <CandidateSectionHeader />    — "N found" label, export-all button
       <CandidateScroller>
         <CandidateCard />           — one per result, UC-004, UC-005, UC-007
+          <SnippetPreview />        — waveform thumbnail (UC-002 AF-4); sliced peaks + candidate colour
+          ...                       — metadata rows, buttons
         ...                         — includes "Cut·Move·Crossfade" button (sound designer only)
       </CandidateScroller>
     </CandidateSection>

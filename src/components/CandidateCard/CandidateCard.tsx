@@ -1,4 +1,5 @@
-import type { CreatorProfile, LoopCandidate } from '../../types'
+import type { CreatorProfile, LoopCandidate, WaveformPeaks } from '../../types'
+import { SnippetPreview } from '../SnippetPreview/SnippetPreview'
 import './CandidateCard.css'
 
 // Candidate colour palette — matches theme.css tokens
@@ -35,6 +36,7 @@ function formatTimeRange(startSec: number, endSec: number): string {
 
 interface CandidateCardProps {
   candidate: LoopCandidate
+  peaks: WaveformPeaks | null
   isPlaying: boolean
   isSelected: boolean
   upCrossings: number[]
@@ -52,6 +54,7 @@ interface CandidateCardProps {
 
 export function CandidateCard({
   candidate,
+  peaks,
   isPlaying,
   isSelected,
   profile,
@@ -128,6 +131,9 @@ export function CandidateCard({
           <span className="CandidateCard__adjusted">(adjusted)</span>
         )}
       </div>
+
+      {/* Waveform thumbnail */}
+      <SnippetPreview peaks={peaks} candidate={candidate} isSelected={isSelected} />
 
       {/* Bar annotation */}
       {barAnnotation && (

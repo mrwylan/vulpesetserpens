@@ -44,6 +44,19 @@ When UC-003 has produced a ranked list of loop candidates, the system re-invokes
 
 The channel-mixing step (Main Flow 2a) ensures the waveform display is always mono. The number of channels in the source file is shown as a metadata label (e.g., "Stereo", "Mono") adjacent to the waveform but the visual representation itself is always single-track.
 
+### AF-4: Per-candidate waveform thumbnails in candidate cards
+
+After UC-003 produces the ranked candidate list, each candidate card renders a mini waveform preview scoped to its own sample range:
+
+1. The system calls `slicePeaks(globalPeaks, candidate.startSample, candidate.endSample, peaks.binSize, targetWidth)` for each candidate, where `targetWidth` is the pixel width of the thumbnail canvas (the card's inner width × `devicePixelRatio`). `slicePeaks` maps each output column back to the corresponding input bin range and returns a new `{ min: Float32Array, max: Float32Array }` of length `targetWidth`.
+2. Each thumbnail is drawn using the same vertical-bar loop as Main Flow step 4, using the candidate's `--color-loop-N` colour at **30 % opacity** for bars and **70 % opacity** for the center line.
+3. When the candidate is in the selected state the bars are redrawn at **50 % opacity** without recomputing the peak slice.
+4. Thumbnails are re-rendered when: (a) peak data transitions from `null` to available, (b) the candidate list changes (e.g. after boundary adjustment), (c) the thumbnail canvas is resized.
+5. Thumbnails are **static**: no loop overlays, no boundary markers, no playhead animation, no pointer-event handling.
+6. If peak data is not yet available (`peaks === null`), the thumbnail canvas shows an animated horizontal shimmer (same CSS animation as the main canvas analyzing state). The shimmer is replaced by the waveform draw once peaks arrive.
+
+---
+
 ## Failure / Error Cases
 
 ### FC-1: Canvas context unavailable
@@ -79,6 +92,11 @@ The channel-mixing step (Main Flow 2a) ensures the waveform display is always mo
 9. The selected loop candidate is visually distinguishable from non-selected candidates (distinct color or border).
 10. The waveform for a stereo file is rendered as a single mono-mixed track, and a "Stereo" label is displayed adjacent to the canvas.
 11. Loop boundary markers (vertical lines) for the selected candidate are visible at the correct pixel positions corresponding to the candidate's start and end times.
+12. After UC-003 completes, each candidate card contains a `<canvas>` element showing the waveform peaks scoped to that candidate's sample range.
+13. The thumbnail canvas uses the candidate's colour family, consistent with its card colour strip and main-canvas waveform overlay.
+14. The thumbnail renders within 100 ms of the candidate list becoming available (post UC-003).
+15. A candidate whose sample range is silent (all samples zero) renders as a flat line in the thumbnail; a candidate containing a loud transient shows visible amplitude variation.
+16. When peak data is not yet available (analyzing state), each thumbnail canvas shows an animated shimmer rather than a blank or broken state.
 
 ## Test Coverage
 
@@ -87,6 +105,9 @@ The channel-mixing step (Main Flow 2a) ensures the waveform display is always mo
 - AC-6: peak-extraction function on a full-scale sine wave produces min ≈ -1.0 and max ≈ 1.0 across columns
 - AC-2: peak-extraction output array length equals the pixel-width argument passed to the function
 - AC-10: mono-mix function averages L and R channels correctly for a synthetic stereo Float32Array
+- AC-12/15: `slicePeaks` extracts the correct sub-range from a synthetic peak array (values at the expected indices appear in the output)
+- AC-12: `slicePeaks` output array length equals the requested `targetWidth` argument
+- AC-15: `slicePeaks` on a zero-length range (`startSample === endSample`) returns all-zero min and max arrays of length `targetWidth`
 
 ### E2E (Playwright)
 - AC-1: after uploading a WAV fixture, a `<canvas>` element is visible and non-empty within 500 ms of the audio-loaded event
@@ -98,9 +119,12 @@ The channel-mixing step (Main Flow 2a) ensures the waveform display is always mo
 - AC-9: the selected candidate's overlay is visually distinct from unselected overlays (pixel color differs at the same x position)
 - AC-10: after uploading a stereo fixture, a "Stereo" label is visible adjacent to the canvas
 - AC-11: loop boundary marker lines are rendered at pixel positions corresponding to the candidate's start and end times
+- AC-12: after analysis completes, each candidate card contains a `<canvas>` element that is non-empty (has non-zero pixel dimensions)
+- AC-13: sampling a pixel from each card's thumbnail canvas produces a colour whose hue matches the candidate's colour strip colour
 
 ## Notes / Constraints
 
+- The `slicePeaks(peaks, startSample, endSample, binSize, targetWidth)` helper maps each output column `i` to the source bin range `[startBin + i * scale, startBin + (i+1) * scale)` where `startBin = Math.floor(startSample / binSize)`, `endBin = Math.ceil(endSample / binSize)`, and `scale = (endBin - startBin) / targetWidth`. It returns `{ min: Float32Array, max: Float32Array }` of length `targetWidth` by taking the minimum of `peaks.min` and the maximum of `peaks.max` over the mapped source bins. If the input range is empty (`startSample >= endSample`) it returns all-zero arrays.
 - All rendering must use the HTML5 Canvas 2D API. Do not use WebGL for this feature.
 - Peak extraction must run on the raw `Float32Array` data obtained via `audioBuffer.getChannelData(channelIndex)`. Do not copy the data into a new array; iterate over the typed array in-place to minimize memory allocation.
 - The waveform rendering must use `requestAnimationFrame` for the actual draw call so it is synchronized with the browser's paint cycle. The peak extraction (CPU-intensive) may happen synchronously before the `requestAnimationFrame` call if the buffer is short (< 60 seconds). For longer buffers, extract peaks in a Web Worker to avoid blocking the main thread, posting the result back and then drawing on the main thread.

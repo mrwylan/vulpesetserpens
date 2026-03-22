@@ -759,6 +759,7 @@ export default function App() {
         {appState.kind === 'results' && (
           <CandidateList
             candidates={resultCandidates}
+            peaks={waveformPeaks}
             selectedRank={selectedRank}
             playingRank={playerState.playingRank}
             upCrossings={upCrossings}

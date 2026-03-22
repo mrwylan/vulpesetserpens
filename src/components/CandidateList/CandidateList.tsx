@@ -1,9 +1,10 @@
-import type { CreatorProfile, LoopCandidate } from '../../types'
+import type { CreatorProfile, LoopCandidate, WaveformPeaks } from '../../types'
 import { CandidateCard } from '../CandidateCard/CandidateCard'
 import './CandidateList.css'
 
 interface CandidateListProps {
   candidates: LoopCandidate[]
+  peaks: WaveformPeaks | null
   selectedRank: number | null
   playingRank: number | null
   upCrossings: number[]
@@ -22,6 +23,7 @@ interface CandidateListProps {
 
 export function CandidateList({
   candidates,
+  peaks,
   selectedRank,
   playingRank,
   upCrossings,
@@ -60,6 +62,7 @@ export function CandidateList({
             <div key={candidate.rank} role="listitem">
               <CandidateCard
                 candidate={candidate}
+                peaks={peaks}
                 isPlaying={playingRank === candidate.rank}
                 isSelected={selectedRank === candidate.rank}
                 upCrossings={upCrossings}

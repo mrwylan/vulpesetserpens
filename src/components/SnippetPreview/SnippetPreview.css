@@ -1,0 +1,12 @@
+.SnippetPreview {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.SnippetPreview__canvas {
+  display: block;
+  width: 100%;
+  height: var(--snippet-preview-height);
+}

@@ -66,6 +66,7 @@
   --layout-max-width:      1400px;
   --waveform-height:       140px;
   --candidate-card-width:  220px;
+  --snippet-preview-height: 44px;
 
   /* === Transitions === */
   --transition-fast: 150ms ease;
